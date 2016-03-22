@@ -5,9 +5,9 @@
 
 const char[] PLUGIN_NAME    = "Multi-Giveaway";
 const char[] PLUGIN_AUTHOR  = "Alex \"ZeroKnight\" George";
-const char[] PLUGIN_DESC    = "Ultimate Giveaway plugin. Implements numerous kinds of Giveaways.";
+const char[] PLUGIN_DESC    = "Expansive Giveaway system with numerous types of Giveaway events and stats";
 const char[] PLUGIN_VERSION = "0.1.0";
-const char[] PLUGIN_URL     = "http:/github.com/ZeroKnight/sm-multi-giveaway";
+const char[] PLUGIN_URL     = "http:/github.com/ZeroKnight/sm-Multi-Giveaway";
 const char[] PLUGIN_TAG     = "[MG]";
 
 public Plugin myinfo =
