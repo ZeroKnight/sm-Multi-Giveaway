@@ -1,3 +1,11 @@
+/*
+ * Copyright (c) 2016 Alex "ZeroKnight" George
+ *
+ * This file is licensed under the MIT License. For details, please see the
+ * LICENSE file that should be included with the source code, or
+ * <https://opensource.org/licenses/MIT>
+ */
+
 #include <sourcemod>
 
 #pragma semicolon 1
@@ -171,4 +179,6 @@ public Action Command_MultiGiveaway(int client, int args)
 
   // ...
 }
+
+// vim: et sts=2 sw=2
 
