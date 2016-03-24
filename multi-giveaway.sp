@@ -11,12 +11,12 @@
 #pragma semicolon 1
 #pragma newdecls required
 
-const char[] PLUGIN_NAME    = "Multi-Giveaway";
-const char[] PLUGIN_AUTHOR  = "Alex \"ZeroKnight\" George";
-const char[] PLUGIN_DESC    = "Expansive Giveaway system with numerous types of Giveaway events and stats";
-const char[] PLUGIN_VERSION = "0.1.0";
-const char[] PLUGIN_URL     = "http:/github.com/ZeroKnight/sm-Multi-Giveaway";
-const char[] PLUGIN_TAG     = "[MG]";
+const char PLUGIN_NAME[]    = "Multi-Giveaway";
+const char PLUGIN_AUTHOR[]  = "Alex \"ZeroKnight\" George";
+const char PLUGIN_DESC[]    = "Expansive Giveaway system with numerous types of Giveaway events and stats";
+const char PLUGIN_VERSION[] = "0.1.0";
+const char PLUGIN_URL[]     = "http:/github.com/ZeroKnight/sm-Multi-Giveaway";
+const char PLUGIN_TAG[]     = "[MG]";
 
 public Plugin myinfo =
 {
@@ -27,11 +27,13 @@ public Plugin myinfo =
   url         = PLUGIN_URL
 };
 
-enum MG_GiveawayType { MG_Dice = 1, MG_Number = 2, MG_Kill = 4, MG_All = 7 };
+enum GiveawayType { GT_Invalid = -1, GT_Dice = 1, GT_Number = 2, GT_Kill = 4, GT_All = 7 };
+
+//File configfile = ...
 
 // TODO: Put things like this in a personal core library?
 #define CVAR(%1) ConVar cv_%1;
-const char[] CVAR_PREFIX = "multi_giveaway";
+const char CVAR_PREFIX[] = "multi_giveaway";
 CVAR("version");
 CVAR("flags");
 CVAR("enaled_types");
@@ -48,7 +50,7 @@ CVAR("number_show_guesses");
 void RegisterConVars()
 {
   // XXX: Why is CreateConVar() not overloaded?! Are there even overloads?!
-  const char[32] sMG_All; IntToString(MG_All, sMG_All, sizeof(sMG_All));
+  const char sGT_All[32]; IntToString(GT_All, sGT_All, sizeof(sGT_All));
 
   cv_version = CreateConVar(
     "multi_givaway_version",
@@ -61,10 +63,10 @@ void RegisterConVars()
     "List of admin flags allowed to manage giveaways");
   cv_enabled_types = CreateConVar(
     "multi_giveaway_enabled_types",
-    sMG_All,
+    sGT_All,
     "Bit-field (sum of options) of enabled Giveaway types",
     true, 1.0,
-    true, MG_All);
+    true, GT_All);
   cv_player_state = CreateConVar(
     "multi_giveaway_player_state",
     "7",
@@ -132,8 +134,55 @@ void RegisterCommands()
 
 void LoadConfig()
 {
+  if (configfile != null) // is this boilerplate necessary?
+    CloseHandle(configfile);
   // ...
 }
+
+// TODO: If (Source)Pawn has function overloading, implement this as GetType()
+// This is sufficient. I refuse to use disgusting macro hacks.
+GiveawayType Type_Str2Enum(const char[] type)
+{
+  if (StrEqual(type, "dice", false)) return GT_Dice;
+  else if (StrEqual(type, "number", false)) return GT_Number;
+  else if (StrEqual(type, "kill", false)) return GT_Kill;
+  else return GT_Invalid;
+}
+
+const char[] Type_Enum2Str(const GiveawayType type)
+{
+  switch (type)
+  {
+    case GT_Dice: return "Dice";
+    case GT_Number: return "Number";
+    case GT_Kill: return "Kill";
+    case GT_Invalid: return "";
+    default: return ""; // Blah, no fallthrough
+  }
+}
+
+// TODO: Return something meaningful if possible, rather than void
+void Giveaway_Start(const GiveawayType type, const ArrayList args)
+{
+  // ...
+}
+
+void Giveaway_Stop(const GiveawayType type)
+{
+  // ...
+}
+
+void Giveaway_Restart(const GiveawayType type)
+{
+  // ...
+}
+
+void Giveaway_Status()
+{
+  // return what giveaway is running, if any
+  // do other things
+}
+
 
 // Forwards  ///////////////////////
 
@@ -147,7 +196,7 @@ public void OnPluginStart()
   RegisterCommands();
   RegisterConVars();
 
-  const char[128] translatefile;
+  const char translatefile[128];
   Format(translatefile, sizeof(translatefile), "%s.phrases", PLUGIN_NAME);
   LoadTranslations(translatefile);
 
@@ -171,13 +220,44 @@ public Action Command_ReloadConfig(int client, int args)
 
 public Action Command_MultiGiveaway(int client, int args)
 {
-  // sm_mg <start|stop|restart> <dice|number|kill|...> [params]...
-  char[32] action, type;
+  // sm_mg [start|stop|restart|status] <dice|number|kill|...> [params]...
 
+  // XXX: should we use GetCmdArgs() or args for this?
+  if (!GetCmdArgs())
+  {
+    // interactive. open a menu
+  }
+
+  char action[32], typestr[32];
+
+  // ???: is this a blank string if there is no arg?
   GetCmdArgString(1, action, sizeof(action));
-  GetCmdArgString(2, type, sizeof(type));
+  GetCmdArgString(2, type_str, sizeof(type_str));
+  GiveawayType type = Type_Str2Enum(type_str);
 
-  // ...
+  if (StrEqual(action, "start", false))
+  {
+    ArrayList typeargs = CreateArray();
+    for (i = 3; i <= GetCmdArgs(); ++i)
+    {
+      char arg[64];
+      GetCmdArgString(i, arg, sizeof(arg));
+      typeargs.Push(arg);
+    }
+    Giveaway_Start(type, typeargs);
+  }
+  else if (StrEqual(action, "stop", false))
+    Giveaway_Stop(type);
+  else if (StrEqual(action, "restart", false))
+    Giveaway_Restart(type);
+  else if (StrEqual(action, "status", false))
+    Giveaway_Status(type);
+  else
+  {
+    // TODO: List valid actions in error message, or inform of a help command
+    ReplyToCommand(client, "%s Invalid action '%s'", PLUGIN_TAG, action);
+    return Plugin_Handled;
+  }
 }
 
 // vim: et sts=2 sw=2
