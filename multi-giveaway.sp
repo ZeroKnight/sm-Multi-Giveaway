@@ -11,12 +11,12 @@
 #pragma semicolon 1
 #pragma newdecls required
 
-const char PLUGIN_NAME[]    = "Multi-Giveaway";
-const char PLUGIN_AUTHOR[]  = "Alex \"ZeroKnight\" George";
-const char PLUGIN_DESC[]    = "Expansive Giveaway system with numerous types of Giveaway events and stats";
-const char PLUGIN_VERSION[] = "0.1.0";
-const char PLUGIN_URL[]     = "http:/github.com/ZeroKnight/sm-Multi-Giveaway";
-const char PLUGIN_TAG[]     = "[MG]";
+char PLUGIN_NAME[]    = "Multi-Giveaway";
+char PLUGIN_AUTHOR[]  = "Alex \"ZeroKnight\" George";
+char PLUGIN_DESC[]    = "Expansive Giveaway system with numerous types of Giveaway events and stats";
+char PLUGIN_VERSION[] = "0.1.0";
+char PLUGIN_URL[]     = "http:/github.com/ZeroKnight/sm-Multi-Giveaway";
+char PLUGIN_TAG[]     = "[MG]";
 
 public Plugin myinfo =
 {
@@ -32,25 +32,25 @@ enum GiveawayType { GT_Invalid = -1, GT_Dice = 1, GT_Number = 2, GT_Kill = 4, GT
 //File configfile = ...
 
 // TODO: Put things like this in a personal core library?
-#define CVAR(%1) ConVar cv_%1;
-const char CVAR_PREFIX[] = "multi_giveaway";
-CVAR("version");
-CVAR("flags");
-CVAR("enaled_types");
-CVAR("player_state");
-CVAR("min_conn_time");
-CVAR("dice_min");
-CVAR("dice_max");
-CVAR("dice_show_rolls");
-CVAR("dice_rerolls");
-CVAR("number_min");
-CVAR("number_max");
-CVAR("number_show_guesses");
+#define CVAR(%1) ConVar cv_%1
+char CVAR_PREFIX[] = "multi_giveaway";
+CVAR(version);
+CVAR(flags);
+CVAR(enabled_types);
+CVAR(player_state);
+CVAR(min_conn_time);
+CVAR(dice_min);
+CVAR(dice_max);
+CVAR(dice_show_rolls);
+CVAR(dice_rerolls);
+CVAR(number_min);
+CVAR(number_max);
+CVAR(number_show_guesses);
 
 void RegisterConVars()
 {
   // XXX: Why is CreateConVar() not overloaded?! Are there even overloads?!
-  const char sGT_All[32]; IntToString(GT_All, sGT_All, sizeof(sGT_All));
+  char sGT_All[32]; IntToString(GT_All, sGT_All, sizeof(sGT_All));
 
   cv_version = CreateConVar(
     "multi_givaway_version",
@@ -65,24 +65,28 @@ void RegisterConVars()
     "multi_giveaway_enabled_types",
     sGT_All,
     "Bit-field (sum of options) of enabled Giveaway types",
+    FCVAR_NONE,
     true, 1.0,
     true, GT_All);
   cv_player_state = CreateConVar(
     "multi_giveaway_player_state",
     "7",
-    "Bit-field (sum of options) of player states that are valid for giveaway participation: 1 - Spectator, 2 - Dead, 4 - Alive"
+    "Bit-field (sum of options) of player states that are valid for giveaway participation: 1 - Spectator, 2 - Dead, 4 - Alive",
+    FCVAR_NONE,
     true, 1.0,
     true, 7.0);
   cv_min_conn_time = CreateConVar( // TODO: Allow certain giveaways to override (eg. kill objective)
     "multi_giveaway_min_conn_time",
     "300", // 5 minutes
     "Amount of time in seconds a player must be connected to participate in a giveaway",
+    FCVAR_NONE,
     true, 0.0);
 
   cv_dice_min = CreateConVar(
     "multi_giveaway_dice_min",
     "1",
     "Lowest possible number a player may roll",
+    FCVAR_NONE,
     true, 1.0);
   cv_dice_max = CreateConVar(
     "multi_giveaway_dice_max",
@@ -92,7 +96,8 @@ void RegisterConVars()
     "multi_giveaway_dice_show_rolls",
     "0",
     "Who can see other clients' dice rolls: 0 - Nobody, 1 - Admins, 2 - Everyone",
-    true, 0.0
+    FCVAR_NONE,
+    true, 0.0,
     true, 2.0);
   cv_dice_rerolls = CreateConVar(
     "multi_giveaway_dice_reroll",
@@ -103,6 +108,7 @@ void RegisterConVars()
     "multi_giveaway_number_min",
     "1",
     "Lower bound of the range of numbers",
+    FCVAR_NONE,
     true, 1.0);
   cv_number_max = CreateConVar(
     "multi_giveaway_number_max",
@@ -112,6 +118,7 @@ void RegisterConVars()
     "multi_giveaway_number_show_guesses",
     "2",
     "Who can see other clients' guesses: 0 - Nobody, 1 - Admins, 2 - Everyone",
+    FCVAR_NONE,
     true, 0.0,
     true, 2.0);
 }
@@ -134,8 +141,8 @@ void RegisterCommands()
 
 void LoadConfig()
 {
-  if (configfile != null) // is this boilerplate necessary?
-    CloseHandle(configfile);
+  //if (configfile != null) // is this boilerplate necessary?
+    //CloseHandle(configfile);
   // ...
 }
 
@@ -149,7 +156,7 @@ GiveawayType Type_Str2Enum(const char[] type)
   else return GT_Invalid;
 }
 
-const char[] Type_Enum2Str(const GiveawayType type)
+char[] Type_Enum2Str(const GiveawayType type)
 {
   switch (type)
   {
@@ -196,11 +203,9 @@ public void OnPluginStart()
   RegisterCommands();
   RegisterConVars();
 
-  const char translatefile[128];
+  char translatefile[128];
   Format(translatefile, sizeof(translatefile), "%s.phrases", PLUGIN_NAME);
   LoadTranslations(translatefile);
-
-  return Plugin_Handled;
 }
 
 public void OnClientDisconnect(int client)
@@ -228,21 +233,21 @@ public Action Command_MultiGiveaway(int client, int args)
     // interactive. open a menu
   }
 
-  char action[32], typestr[32];
+  char action[32], type_str[32];
 
   // ???: is this a blank string if there is no arg?
-  GetCmdArgString(1, action, sizeof(action));
-  GetCmdArgString(2, type_str, sizeof(type_str));
+  GetCmdArg(1, action, sizeof(action));
+  GetCmdArg(2, type_str, sizeof(type_str));
   GiveawayType type = Type_Str2Enum(type_str);
 
   if (StrEqual(action, "start", false))
   {
     ArrayList typeargs = CreateArray();
-    for (i = 3; i <= GetCmdArgs(); ++i)
+    for (int i = 3; i <= GetCmdArgs(); ++i)
     {
       char arg[64];
-      GetCmdArgString(i, arg, sizeof(arg));
-      typeargs.Push(arg);
+      GetCmdArg(i, arg, sizeof(arg));
+      typeargs.PushString(arg);
     }
     Giveaway_Start(type, typeargs);
   }
@@ -251,7 +256,7 @@ public Action Command_MultiGiveaway(int client, int args)
   else if (StrEqual(action, "restart", false))
     Giveaway_Restart(type);
   else if (StrEqual(action, "status", false))
-    Giveaway_Status(type);
+    Giveaway_Status();
   else
   {
     // TODO: List valid actions in error message, or inform of a help command
