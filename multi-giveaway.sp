@@ -27,9 +27,10 @@ public Plugin myinfo =
   url         = PLUGIN_URL
 };
 
-// NOTE: (<<= 1) is actually a neat thing that SourcePawn does. It lets you
-// specify how to 'increment' each enumeration. In this case, each one will be
-// the previous value left shifted 1, which gives us our bit-field.
+/* NOTE: (<<= 1) is actually a neat thing that SourcePawn does. It lets you
+ * specify how to 'increment' each enumeration. In this case, each one will be
+ * the previous value left shifted 1, which gives us our bit-field.
+ */
 enum GiveawayType (<<= 1)
 {
   GT_Invalid = -1, GT_Dice = 1, GT_Number, GT_Kill, GT_All = 7
@@ -73,7 +74,7 @@ void RegisterConVars()
     "Bit-field (sum of options) of enabled Giveaway types",
     FCVAR_NONE,
     true, 1.0,
-    true, view_as<float>(GT_All));
+    true, float(GT_All));
   cv_player_state = CreateConVar(
     "multi_giveaway_player_state",
     "7",
