@@ -27,7 +27,13 @@ public Plugin myinfo =
   url         = PLUGIN_URL
 };
 
-enum GiveawayType { GT_Invalid = -1, GT_Dice = 1, GT_Number = 2, GT_Kill = 4, GT_All = 7 };
+// NOTE: (<<= 1) is actually a neat thing that SourcePawn does. It lets you
+// specify how to 'increment' each enumeration. In this case, each one will be
+// the previous value left shifted 1, which gives us our bit-field.
+enum GiveawayType (<<= 1)
+{
+  GT_Invalid = -1, GT_Dice = 1, GT_Number, GT_Kill, GT_All = 7
+}
 
 //File configfile = ...
 
@@ -49,7 +55,7 @@ CVAR(number_show_guesses);
 
 void RegisterConVars()
 {
-  // XXX: Why is CreateConVar() not overloaded?! Are there even overloads?!
+  // XXX: Function overloads would be nice. Or casting that worked on strings.
   char sGT_All[32]; IntToString(GT_All, sGT_All, sizeof(sGT_All));
 
   cv_version = CreateConVar(
@@ -67,7 +73,7 @@ void RegisterConVars()
     "Bit-field (sum of options) of enabled Giveaway types",
     FCVAR_NONE,
     true, 1.0,
-    true, GT_All);
+    true, view_as<float>(GT_All));
   cv_player_state = CreateConVar(
     "multi_giveaway_player_state",
     "7",
@@ -139,48 +145,56 @@ void RegisterCommands()
     "Manage giveaways");
 }
 
-void LoadConfig()
+void GetTypeName(const GiveawayType type, char[] str, int sz)
+{
+  switch (type)
+  {
+    case GT_Invalid: return;
+    case GT_Dice:    StrCopy(str, sz, "Dice");
+    case GT_Number:  StrCopy(str, sz, "Number");
+    case GT_Kill:    StrCopy(str, sz, "Kill");
+    default:         return;
+  }
+}
+
+GiveawayType GetType(const char[] typename)
+{
+  if      (StrEqual(typename, "dice", false))   return GT_Dice;
+  else if (StrEqual(typename, "number", false)) return GT_Number;
+  else if (StrEqual(typename, "kill", false))   return GT_Kill;
+  else return GT_Invalid;
+}
+
+bool LoadConfig()
 {
   //if (configfile != null) // is this boilerplate necessary?
     //CloseHandle(configfile);
   // ...
-}
-
-// TODO: If (Source)Pawn has function overloading, implement this as GetType()
-// This is sufficient. I refuse to use disgusting macro hacks.
-GiveawayType Type_Str2Enum(const char[] type)
-{
-  if (StrEqual(type, "dice", false)) return GT_Dice;
-  else if (StrEqual(type, "number", false)) return GT_Number;
-  else if (StrEqual(type, "kill", false)) return GT_Kill;
-  else return GT_Invalid;
-}
-
-char[] Type_Enum2Str(const GiveawayType type)
-{
-  switch (type)
-  {
-    case GT_Dice: return "Dice";
-    case GT_Number: return "Number";
-    case GT_Kill: return "Kill";
-    case GT_Invalid: return "";
-    default: return ""; // Blah, no fallthrough
-  }
+  return true;
 }
 
 // TODO: Return something meaningful if possible, rather than void
-void Giveaway_Start(const GiveawayType type, const ArrayList args)
+void Giveaway_Start(const GiveawayType type, const ArrayList args, int client)
 {
+  char typename[32];
+  GetTypeName(type, typename, sizeof(typename));
+  ReplyToCommand(client, "%s Starting Giveaway '%s'", PLUGIN_TAG, typename);
   // ...
 }
 
-void Giveaway_Stop(const GiveawayType type)
+void Giveaway_Stop(const GiveawayType type, int client)
 {
+  char typename[32];
+  GetTypeName(type, typename, sizeof(typename));
+  ReplyToCommand(client, "%s Stopping Giveaway '%s'", PLUGIN_TAG, typename);
   // ...
 }
 
-void Giveaway_Restart(const GiveawayType type)
+void Giveaway_Restart(const GiveawayType type, int client)
 {
+  char typename[32];
+  GetTypeName(type, typename, sizeof(typename));
+  ReplyToCommand(client, "%s Restarting Giveaway '%s'", PLUGIN_TAG, typename);
   // ...
 }
 
@@ -205,7 +219,7 @@ public void OnPluginStart()
 
   char translatefile[128];
   Format(translatefile, sizeof(translatefile), "%s.phrases", PLUGIN_NAME);
-  LoadTranslations(translatefile);
+  //LoadTranslations(translatefile);
 }
 
 public void OnClientDisconnect(int client)
@@ -217,9 +231,13 @@ public void OnClientDisconnect(int client)
 
 public Action Command_ReloadConfig(int client, int args)
 {
-  LoadConfig();
-  LogAction(client, -1, "%s configuration reloaded by %L", PLUGIN_NAME, client);
-  ReplyToCommand(client, "%s Configuration reloaded!", PLUGIN_TAG);
+  bool success = LoadConfig();
+  LogAction(client, -1, "%s configuration reload by %L", PLUGIN_NAME, client);
+  if (success)
+    ReplyToCommand(client, "%s Configuration reloaded!", PLUGIN_TAG);
+  else // TODO: Provide error information, etc
+    ReplyToCommand(client, "%s Configuration error!", PLUGIN_TAG);
+
   return Plugin_Handled;
 }
 
@@ -227,18 +245,19 @@ public Action Command_MultiGiveaway(int client, int args)
 {
   // sm_mg [start|stop|restart|status] <dice|number|kill|...> [params]...
 
-  // XXX: should we use GetCmdArgs() or args for this?
-  if (!GetCmdArgs())
+  if (!args)
   {
-    // interactive. open a menu
+    // Interactive Mode: Menu-based interface
+    ReplyToCommand(client, "%s Interactive mode not yet implemented!",
+                   PLUGIN_TAG);
+    return Plugin_Handled;
   }
 
-  char action[32], type_str[32];
+  char action[32], typename[32];
 
-  // ???: is this a blank string if there is no arg?
   GetCmdArg(1, action, sizeof(action));
-  GetCmdArg(2, type_str, sizeof(type_str));
-  GiveawayType type = Type_Str2Enum(type_str);
+  GetCmdArg(2, typename, sizeof(typename));
+  GiveawayType type = GetType(typename);
 
   if (StrEqual(action, "start", false))
   {
@@ -249,12 +268,12 @@ public Action Command_MultiGiveaway(int client, int args)
       GetCmdArg(i, arg, sizeof(arg));
       typeargs.PushString(arg);
     }
-    Giveaway_Start(type, typeargs);
+    Giveaway_Start(type, typeargs, client);
   }
   else if (StrEqual(action, "stop", false))
-    Giveaway_Stop(type);
+    Giveaway_Stop(type, client);
   else if (StrEqual(action, "restart", false))
-    Giveaway_Restart(type);
+    Giveaway_Restart(type, client);
   else if (StrEqual(action, "status", false))
     Giveaway_Status();
   else
@@ -263,6 +282,8 @@ public Action Command_MultiGiveaway(int client, int args)
     ReplyToCommand(client, "%s Invalid action '%s'", PLUGIN_TAG, action);
     return Plugin_Handled;
   }
+
+  return Plugin_Handled;
 }
 
 // vim: et sts=2 sw=2
