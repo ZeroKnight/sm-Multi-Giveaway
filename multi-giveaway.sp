@@ -27,6 +27,8 @@ public Plugin myinfo =
   url         = PLUGIN_URL
 };
 
+const int TYPEOPT_MAX_LEN = 64;
+
 /* NOTE: (<<= 1) is actually a neat thing that SourcePawn does. It lets you
  * specify how to 'increment' each enumeration. In this case, each one will be
  * the previous value left shifted 1, which gives us our bit-field.
@@ -34,7 +36,17 @@ public Plugin myinfo =
 enum GiveawayType (<<= 1)
 {
   GT_Invalid = -1, GT_Dice = 1, GT_Number, GT_Kill, GT_All = 7
-}
+};
+const int nGTypes = 3;
+
+// Global state variables/data structures
+StringMap GiveawayData;
+ArrayList Dice_PlayerRolls;
+ArrayList Dice_BestRolls;
+ArrayList Dice_ReRolls;
+ArrayList Number_PlayerGuesses;
+
+ArrayList Current_TypeOpts; // NOTE: Subject to change
 
 //File configfile = ...
 
@@ -56,16 +68,19 @@ CVAR(number_show_guesses);
 
 void RegisterConVars()
 {
-  // XXX: Function overloads would be nice. Or casting that worked on strings.
-  char sGT_All[32]; IntToString(GT_All, sGT_All, sizeof(sGT_All));
+  // NOTE: Use HookConVarChange() for anything that needs it
 
+  // XXX: Function overloads would be nice. Or casting that worked on strings.
+  char sGT_All[32]; IntToString(view_as<int>(GT_All), sGT_All, sizeof(sGT_All));
+
+  // Core
   cv_version = CreateConVar(
-    "multi_givaway_version",
+    "multi_giveaway_version",
     PLUGIN_VERSION,
     "Plugin version",
     FCVAR_SPONLY|FCVAR_REPLICATED|FCVAR_NOTIFY|FCVAR_DONTRECORD);
   cv_flags = CreateConVar(
-    "multi_givaway_flags",
+    "multi_giveaway_flags",
     "b",
     "List of admin flags allowed to manage giveaways");
   cv_enabled_types = CreateConVar(
@@ -89,6 +104,7 @@ void RegisterConVars()
     FCVAR_NONE,
     true, 0.0);
 
+  // Dice
   cv_dice_min = CreateConVar(
     "multi_giveaway_dice_min",
     "1",
@@ -107,10 +123,13 @@ void RegisterConVars()
     true, 0.0,
     true, 2.0);
   cv_dice_rerolls = CreateConVar(
-    "multi_giveaway_dice_reroll",
+    "multi_giveaway_dice_rerolls",
     "0",
-    "Number of 'do-overs' a player gets when rolling. Only the last is counted, for better or for worse");
+    "Number of 'do-overs' a player gets when rolling. Only the last is counted, for better or for worse",
+    FCVAR_NONE,
+    true, 0.0);
 
+  // Number Guess
   cv_number_min = CreateConVar(
     "multi_giveaway_number_min",
     "1",
@@ -134,17 +153,35 @@ void RegisterCommands()
 {
   // XXX: Is there a better way to create aliases?
   // RegConsoleCmd for client commands (ie participation)
-  // RegAdminCmd for admin commands (ie (start|stop)ing giveaways
-  // methodmap may be helpful
+  // RegAdminCmd for admin commands (ie (start|stop)ing giveaways methodmap may
+  // be helpful
+  //
+  // We can use AddCommandListener() to allow for "commands" that aren't
+  // actually registered commands (think 'nominate')
 
   RegAdminCmd("sm_mg_reload", Command_ReloadConfig, ADMFLAG_CONFIG,
     "Reload configuration file");
-  // start/stop/status <type> - style command
   RegAdminCmd("sm_multigiveaway", Command_MultiGiveaway, ADMFLAG_GENERIC,
     "Manage giveaways");
   RegAdminCmd("sm_mg", Command_MultiGiveaway, ADMFLAG_GENERIC,
     "Manage giveaways");
+  RegAdminCmd("sm_dice_rig", Command_Dice_Rig, ADMFLAG_CHEATS,
+              "Rigs the Dice Giveaway so the chosen client wins");
+
+  RegConsoleCmd("sm_rolldice", Command_Dice_Roll,
+                "Rolls the dice during a Dice Giveaway");
+  RegConsoleCmd("sm_reroll", Command_Dice_ReRoll,
+                "Rolls the dice again during a Giveaway, giving you a new result (for better or worse!");
 }
+
+bool LoadConfig()
+{
+  //if (configfile != null) // is this boilerplate necessary?
+    //CloseHandle(configfile);
+  // ...
+  return true;
+}
+
 
 void GetTypeName(const GiveawayType type, char[] str, int sz)
 {
@@ -166,45 +203,265 @@ GiveawayType GetType(const char[] typename)
   else return GT_Invalid;
 }
 
-bool LoadConfig()
+void GetTypeOpts(char[] str, const int sz)
 {
-  //if (configfile != null) // is this boilerplate necessary?
-    //CloseHandle(configfile);
-  // ...
+  char opt[64];
+  for (int i = 0; i < Current_TypeOpts.Length; ++i)
+  {
+    Current_TypeOpts.GetString(i, opt, sizeof(opt));
+    StrCat(str, sz, opt);
+    StrCat(str, sz, "; ");
+  }
+}
+
+void ArraySetAll(ArrayList& array, any value)
+{
+  for (int i = 0; i < array.Length; ++i)
+    array.Set(i, value);
+}
+
+void SendToAdmins(const char[] str)
+{
+  for (int i = 1; i <= MaxClients; ++i)
+  {
+    if (IsClientInGame(i) && GetUserAdmin(i) != INVALID_ADMIN_ID)
+      PrintToChat(i, "%s", str);
+  }
+}
+
+bool Giveaway_Start(const GiveawayType type,
+                    const ArrayList opts,
+                    const int client,
+                    const bool restarting=false)
+{
+  GiveawayType cg; GiveawayData.GetValue("Current", cg);
+  char typename_current[32];
+  GetTypeName(cg, typename_current, sizeof(typename_current));
+  if (cg != GT_Invalid)
+  {
+    ReplyToCommand(client, "%s %t", PLUGIN_TAG, "MG_Giveaway_In_Progress",
+                   typename_current);
+    return false;
+  }
+
+  char typename[32], typeopts[512];
+  GetTypeName(type, typename, sizeof(typename));
+  GetTypeOpts(typeopts, sizeof(typeopts));
+  if (type == GT_Invalid)
+  {
+    ReplyToCommand(client, "%s %t", PLUGIN_TAG, "MG_Invalid_Type", typename);
+    return false;
+  }
+  else if (type != GT_Dice) // XXX: Temporary
+  {
+    ReplyToCommand(client, "%s Not yet implemented!", PLUGIN_TAG);
+    return false;
+  }
+
+  GiveawayData.SetValue("Current", type);
+  GiveawayData.SetValue("Participants", 0);
+  GiveawayData.SetValue("Starter", client);
+
+  if (!restarting)
+  {
+    ShowActivity2(client, PLUGIN_TAG, " %t", "MG_Start", typename);
+    LogAction(client, -1, "%L started Giveaway \"%s\" with options: %s",
+              client, typename, typeopts);
+  }
+  switch (type)
+  {
+    case GT_Dice:
+    {
+      // TODO: Allow changing of "roll" command
+      PrintToChatAll("%s %t", PLUGIN_TAG, "MG_Dice_Start", "rolldice");
+      if (cv_dice_rerolls.IntValue)
+        PrintToChatAll("%s %t", PLUGIN_TAG, "MG_Dice_ReRoll", "reroll");
+    }
+    case GT_Number:
+    {
+      PrintToChatAll("%s %t", PLUGIN_TAG, "MG_Number_Start", "guess",
+                     cv_number_min.IntValue, cv_number_max.IntValue);
+    }
+    case GT_Kill:
+    {
+    }
+  }
   return true;
 }
 
-// TODO: Return something meaningful if possible, rather than void
-void Giveaway_Start(const GiveawayType type, const ArrayList args, int client)
+void Giveaway_Stop(const int client, const bool restarting=false)
 {
+  GiveawayType cg; GiveawayData.GetValue("Current", cg);
+  if (cg == GT_Invalid)
+  {
+    ReplyToCommand(client, "%s %t", PLUGIN_TAG, "MG_No_Giveaway");
+    return;
+  }
+
   char typename[32];
-  GetTypeName(type, typename, sizeof(typename));
-  ReplyToCommand(client, "%s Starting Giveaway '%s'", PLUGIN_TAG, typename);
-  // ...
+  GetTypeName(cg, typename, sizeof(typename));
+  if (!restarting)
+  {
+    ShowActivity2(client, PLUGIN_TAG, " %t", "MG_Stop", typename);
+    LogAction(client, -1, "%L stopped Giveaway \"%s\"", client, typename);
+  }
+  switch (cg)
+  {
+    case GT_Dice:
+    {
+      if (!restarting)
+      {
+        if (Dice_BestRolls.Length)
+        {
+          int best = Dice_GetBestRoll();
+          int nbest = Dice_BestRolls.Length;
+          int rigged; GiveawayData.GetValue("Dice_RiggedPlayer", rigged);
+          int winner;
+          char name[MAX_NAME_LENGTH];
+          if (nbest > 1)
+          {
+            PrintToChatAll("%s %t", PLUGIN_TAG, "MG_Dice_Tie");
+            winner = Dice_BestRolls.Get(GetRandomInt(0, nbest-1));
+          }
+          else winner = Dice_BestRolls.Get(0);
+
+          // Rig the Giveaway
+          if (rigged != -1) winner = rigged;
+
+          GetClientName(winner, name, sizeof(name));
+          PrintToChatAll("%s %t", PLUGIN_TAG,
+                         best == cv_dice_max.IntValue ?
+                          "MG_Dice_Win_Perfect" : "MG_Dice_Win", name, best);
+        }
+        else
+          PrintToChatAll("%s %t", PLUGIN_TAG, "MG_Giveaway_Cancelled",
+                         typename);
+      }
+      GiveawayData.SetValue("Dice_RiggedPlayer", -1);
+      ArraySetAll(Dice_PlayerRolls, 0);
+      ArraySetAll(Dice_ReRolls, cv_dice_rerolls.IntValue);
+      Dice_BestRolls.Clear();
+    }
+    case GT_Number:
+    {
+      ArraySetAll(Number_PlayerGuesses, -1);
+    }
+    case GT_Kill:
+    {
+    }
+  }
+  GiveawayData.SetValue("Current", GT_Invalid);
+  GiveawayData.SetValue("Participants", -1);
+  GiveawayData.SetValue("Starter", -1);
+  Current_TypeOpts.Clear();
 }
 
-void Giveaway_Stop(const GiveawayType type, int client)
+void Giveaway_Restart(const int client)
 {
-  char typename[32];
-  GetTypeName(type, typename, sizeof(typename));
-  ReplyToCommand(client, "%s Stopping Giveaway '%s'", PLUGIN_TAG, typename);
-  // ...
+  GiveawayType cg; GiveawayData.GetValue("Current", cg);
+  if (cg == GT_Invalid)
+  {
+    ReplyToCommand(client, "%s %t", PLUGIN_TAG, "MG_No_Giveaway");
+    return;
+  }
+
+  char typename[32], typeopts[512];
+  GetTypeName(cg, typename, sizeof(typename));
+  GetTypeOpts(typeopts, sizeof(typeopts));
+
+  ShowActivity2(client, PLUGIN_TAG, " %t", "MG_Restart", typename);
+  LogAction(client, -1, "%L restarted Giveaway \"%s\" with options: %s",
+            client, typename, typeopts);
+  Giveaway_Stop(client, true);
+  Giveaway_Start(cg, Current_TypeOpts, client, true);
 }
 
-void Giveaway_Restart(const GiveawayType type, int client)
+void Giveaway_Status(const int client)
 {
-  char typename[32];
-  GetTypeName(type, typename, sizeof(typename));
-  ReplyToCommand(client, "%s Restarting Giveaway '%s'", PLUGIN_TAG, typename);
-  // ...
-}
+  GiveawayType cg; GiveawayData.GetValue("Current", cg);
+  if (cg == GT_Invalid)
+  {
+    ReplyToCommand(client, "%s %t", PLUGIN_TAG, "MG_No_Giveaway");
+    return;
+  }
 
-void Giveaway_Status()
-{
-  // return what giveaway is running, if any
+  char typename[32], typeopts[512];
+  GetTypeName(cg, typename, sizeof(typename));
+  GetTypeOpts(typeopts, sizeof(typeopts));
+
+  ReplyToCommand(client, "%s %t", PLUGIN_TAG, "MG_Status", typename, typeopts);
   // do other things
 }
 
+void Dice_Roll(const int client, const bool rerolling=false)
+{
+  if (!rerolling && Dice_PlayerRolls.Get(client))
+  {
+    ReplyToCommand(client, "%s %t", PLUGIN_TAG, "MG_Dice_Rolled");
+    if (cv_dice_rerolls.IntValue)
+    {
+      if (Dice_ReRolls.Get(client))
+        ReplyToCommand(client, "%s %t", PLUGIN_TAG, "MG_Dice_ReRoll", "reroll");
+      else
+        ReplyToCommand(client, "%s %t", PLUGIN_TAG, "MG_Dice_ReRoll_None");
+    }
+    return;
+  }
+
+  int rand = GetRandomInt(cv_dice_min.IntValue, cv_dice_max.IntValue);
+  int best = Dice_GetBestRoll();
+  int p; GiveawayData.GetValue("Participants", p);
+  int rigged; GiveawayData.GetValue("Dice_RiggedPlayer", rigged);
+
+  if (!rerolling) GiveawayData.SetValue("Participants", ++p);
+
+  // Make the rig look convincing
+  if (rigged != -1 && client == rigged) rand = cv_dice_max.IntValue;
+
+  Dice_PlayerRolls.Set(client, rand);
+  if (rand > best)
+  {
+    Dice_BestRolls.Clear();
+    Dice_BestRolls.Push(client);
+  }
+  else if (rand == best && Dice_BestRolls.FindValue(client) == -1)
+    Dice_BestRolls.Push(client);
+
+  char name[MAX_NAME_LENGTH];
+  GetClientName(client, name, sizeof(name));
+  switch (cv_dice_show_rolls.IntValue)
+  {
+    case 0:
+    {
+      ReplyToCommand(client, "%s %t", PLUGIN_TAG, "MG_Dice_Result", "You",
+                     rand);
+    }
+    case 1:
+    {
+      char str[128];
+      Format(str, sizeof(str), "%s %T", PLUGIN_TAG, "MG_Dice_Result",
+             LANG_SERVER, name, rand);
+      SendToAdmins(str);
+      ReplyToCommand(client, "%s %t", PLUGIN_TAG, "MG_Dice_Result", name, rand);
+    }
+    case 2:
+    {
+      PrintToChatAll("%s %t", PLUGIN_TAG, "MG_Dice_Result", name, rand);
+    }
+  }
+}
+
+int Dice_GetBestRoll()
+{
+  int best = -1;
+  for (int i = 0; i < Dice_PlayerRolls.Length; ++i)
+  {
+    int roll = Dice_PlayerRolls.Get(i);
+    if (roll > best) best = roll;
+  }
+
+  return best;
+}
 
 // Forwards  ///////////////////////
 
@@ -218,14 +475,61 @@ public void OnPluginStart()
   RegisterCommands();
   RegisterConVars();
 
-  char translatefile[128];
+  char translatefile[64];
   Format(translatefile, sizeof(translatefile), "%s.phrases", PLUGIN_NAME);
-  //LoadTranslations(translatefile);
+  LoadTranslations(translatefile);
+}
+
+public void OnMapStart()
+{
+  /* Initialize global state and data structures */
+  GiveawayData         = new StringMap();
+  Current_TypeOpts     = new ArrayList(TYPEOPT_MAX_LEN);
+  Dice_PlayerRolls     = new ArrayList(1, MAXPLAYERS);
+  Dice_BestRolls       = new ArrayList(1);
+  Dice_ReRolls         = new ArrayList(1, MAXPLAYERS);
+  Number_PlayerGuesses = new ArrayList(1, MAXPLAYERS);
+
+  GiveawayData.SetValue("Current", GT_Invalid);
+  GiveawayData.SetValue("Participants", -1);
+  GiveawayData.SetValue("Starter", -1);
+
+  // Dice
+  GiveawayData.SetValue("Dice_RiggedPlayer", -1);
+  ArraySetAll(Dice_PlayerRolls, 0);
+  // FIXME: Hook into convar change and re-set this array
+  ArraySetAll(Dice_ReRolls, cv_dice_rerolls.IntValue);
+
+  // Number Guess
+  GiveawayData.SetValue("Number_ClosestGuess", -1);
+  // TODO: replace with a getbest function like dice; perhaps even a unique one?
+  // eg GetLargestElement?
 }
 
 public void OnClientDisconnect(int client)
 {
-  // remove client from any current lists, etc
+  int p; GiveawayData.GetValue("Participants", p);
+  int s; GiveawayData.GetValue("Starter", s);
+  GiveawayData.SetValue("Participants", p-1);
+  if (s == client) GiveawayData.SetValue("Starter", -1);
+
+  // Dice
+  int best = Dice_GetBestRoll();
+  if (Dice_PlayerRolls.Length && best == Dice_PlayerRolls.Get(client))
+  {
+    for (int i = 0; i < Dice_PlayerRolls.Length; ++i)
+    {
+      if (Dice_BestRolls.Get(i) == client) continue;
+      best = Dice_PlayerRolls.Get(i);
+      break;
+    }
+  }
+  Dice_PlayerRolls.Set(client, 0);
+  Dice_BestRolls.Erase(client);
+  GiveawayData.SetValue("Dice_RiggedPlayer", -1);
+
+  // Number Guess
+  Number_PlayerGuesses.Set(client, -1);
 }
 
 // Callbacks ///////////////////////
@@ -235,9 +539,9 @@ public Action Command_ReloadConfig(int client, int args)
   bool success = LoadConfig();
   LogAction(client, -1, "%s configuration reload by %L", PLUGIN_NAME, client);
   if (success)
-    ReplyToCommand(client, "%s Configuration reloaded!", PLUGIN_TAG);
+    ShowActivity2(client, PLUGIN_TAG, " %t", "MG_Config_Reloaded");
   else // TODO: Provide error information, etc
-    ReplyToCommand(client, "%s Configuration error!", PLUGIN_TAG);
+    ShowActivity2(client, PLUGIN_TAG, " %t", "MG_Config_Error");
 
   return Plugin_Handled;
 }
@@ -255,34 +559,125 @@ public Action Command_MultiGiveaway(int client, int args)
   }
 
   char action[32], typename[32];
-
   GetCmdArg(1, action, sizeof(action));
   GetCmdArg(2, typename, sizeof(typename));
   GiveawayType type = GetType(typename);
 
   if (StrEqual(action, "start", false))
   {
-    ArrayList typeargs = CreateArray();
+    if (args < 2)
+    {
+      /* No type specified, inform client of valid types */
+      char typenames[32*nGTypes];
+      for (int i = 0; i < nGTypes; ++i)
+      {
+        char name[32];
+        GetTypeName(view_as<GiveawayType>(1<<i), name, sizeof(name));
+        StrCat(typenames, sizeof(typenames), name);
+        StrCat(typenames, sizeof(typenames), ", ");
+      }
+      ReplyToCommand(client, "%s %t", PLUGIN_TAG, "MG_Type_Needed", typenames);
+      return Plugin_Handled;
+    }
+
     for (int i = 3; i <= GetCmdArgs(); ++i)
     {
-      char arg[64];
-      GetCmdArg(i, arg, sizeof(arg));
-      typeargs.PushString(arg);
+      char opt[TYPEOPT_MAX_LEN];
+      GetCmdArg(i, opt, sizeof(opt));
+      Current_TypeOpts.PushString(opt);
     }
-    Giveaway_Start(type, typeargs, client);
+    Giveaway_Start(type, Current_TypeOpts, client);
   }
   else if (StrEqual(action, "stop", false))
-    Giveaway_Stop(type, client);
+    Giveaway_Stop(client);
   else if (StrEqual(action, "restart", false))
-    Giveaway_Restart(type, client);
+    Giveaway_Restart(client);
   else if (StrEqual(action, "status", false))
-    Giveaway_Status();
+    Giveaway_Status(client);
   else
   {
-    // TODO: List valid actions in error message, or inform of a help command
-    ReplyToCommand(client, "%s Invalid action '%s'", PLUGIN_TAG, action);
+    ReplyToCommand(client, "%s %t", PLUGIN_TAG, "MG_Invalid_Action", action,
+                   "start, stop, restart, status");
+  }
+
+  return Plugin_Handled;
+}
+
+public Action Command_Dice_Roll(int client, int args)
+{
+  GiveawayType cg; GiveawayData.GetValue("Current", cg);
+  if (cg != GT_Dice)
+  {
+    char typename[32];
+    GetTypeName(GT_Dice, typename, sizeof(typename));
+    ReplyToCommand(client, "%s %t", PLUGIN_TAG, "MG_No_Giveaway_Type",
+                   typename);
     return Plugin_Handled;
   }
+
+  Dice_Roll(client);
+
+  return Plugin_Handled;
+}
+
+public Action Command_Dice_ReRoll(int client, int args)
+{
+  int rerolls = cv_dice_rerolls.IntValue;
+  if (!rerolls)
+  {
+    ReplyToCommand(client, "%s %t", PLUGIN_TAG, "MG_Dice_ReRoll_Disabled");
+    return Plugin_Handled;
+  }
+  if (!Dice_PlayerRolls.Get(client))
+  {
+    ReplyToCommand(client, "%s %t", PLUGIN_TAG, "MG_Dice_ReRoll_Roll_Needed");
+    return Plugin_Handled;
+  }
+
+  int rolls_left = Dice_ReRolls.Get(client);
+  if (rolls_left)
+  {
+    int last_roll = Dice_PlayerRolls.Get(client);
+    Dice_Roll(client, true);
+    ReplyToCommand(client, "%s %t", PLUGIN_TAG, "MG_Dice_ReRolled", last_roll,
+                   --rolls_left);
+    Dice_ReRolls.Set(client, rolls_left);
+  }
+  else
+    ReplyToCommand(client, "%s %t", PLUGIN_TAG, "MG_Dice_ReRoll_None");
+
+  return Plugin_Handled;
+}
+
+public Action Command_Dice_Rig(int client, int args)
+{
+  GiveawayType cg; GiveawayData.GetValue("Current", cg);
+  if (cg != GT_Dice)
+  {
+    char typename[32];
+    GetTypeName(GT_Dice, typename, sizeof(typename));
+    ReplyToCommand(client, "%s %t", PLUGIN_TAG, "MG_No_Giveaway_Type",
+                   typename);
+    return Plugin_Handled;
+  }
+  if (args < 1)
+  {
+    ReplyToCommand(client, "%s %t", PLUGIN_TAG, "MG_Target_Required");
+    return Plugin_Handled;
+  }
+
+  char arg[MAX_NAME_LENGTH], target_name[MAX_NAME_LENGTH];
+  int target[1];
+  bool tnml;
+  GetCmdArg(1, arg, sizeof(arg));
+  int rv = ProcessTargetString(arg, client, target, 1, COMMAND_FILTER_CONNECTED,
+                               target_name, sizeof(target_name), tnml);
+  if (rv)
+  {
+    ShowActivity2(client, PLUGIN_TAG, " %t", "MG_Dice_Rigged", target_name);
+    GiveawayData.SetValue("Dice_RiggedPlayer", target[0]);
+  }
+  else ReplyToTargetError(client, rv);
 
   return Plugin_Handled;
 }

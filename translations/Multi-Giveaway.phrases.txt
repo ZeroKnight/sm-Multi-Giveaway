@@ -1,0 +1,157 @@
+"Phrases"
+{
+  "MG_Config_Reloaded"
+  {
+    "en" "Configuration reloaded!"
+  }
+
+  "MG_Config_Error"
+  {
+    "en" "Configuration error!"
+  }
+
+  "MG_Target_Required"
+  {
+    "en" "You must specify a target."
+  }
+
+  "MG_No_Giveaway"
+  {
+    "en" "There is no Giveaway in progress."
+  }
+
+  "MG_No_Giveaway_Type"
+  {
+    "#format" "{1:s}"
+    "en" "There is no {1} Giveaway in progress."
+  }
+
+  "MG_Giveaway_In_Progress"
+  {
+    "#format" "{1:s}"
+    "en" "There is already a Giveaway in progress: {1}"
+  }
+
+  "MG_Invalid_Type"
+  {
+    "#format" "{1:s}"
+    "en" "Invalid Giveaway type: {1}"
+  }
+
+  "MG_Invalid_Action"
+  {
+    "#format" "{1:s}{2:s}"
+    "en" "Invalid action: {1} Valid actions: {2}"
+  }
+
+  "MG_Type_Needed"
+  {
+    "#format" "{1:s}"
+    "en" "You must specify a Giveaway type. Valid types: {1}"
+  }
+
+  "MG_Start"
+  {
+    "#format" "{1:s}"
+    "en" "Starting Giveaway: {1}"
+  }
+
+  "MG_Stop"
+  {
+    "#format" "{1:s}"
+    "en" "Stopping Giveaway: {1}"
+  }
+
+  "MG_Restart"
+  {
+    "#format" "{1:s}"
+    "en" "Restarting Giveaway: {1}"
+  }
+
+  "MG_Status"
+  {
+    "#format" "{1:s},{2:s}"
+    "en" "Current Giveaway: {1} with options: {2}"
+  }
+
+  "MG_Giveaway_Cancelled"
+  {
+    "#format" "{1:s}"
+    "en" "The {1} Giveaway has been cancelled!"
+  }
+
+  "MG_Dice_Start"
+  {
+    "#format" "{1:s}"
+    "en" "A dice-roll Giveaway has started! Type `!{1}` to participate."
+  }
+
+  "MG_Dice_ReRoll"
+  {
+    "#format" "{1:s}"
+    "en" "You can !{1} if you'd like but be careful, you can get a lower result!"
+  }
+
+  "MG_Dice_Result"
+  {
+    "#format" "{1:s}{2:d}"
+    "en" "{1} rolled {2}!"
+  }
+
+  "MG_Dice_Rolled"
+  {
+    "en" "You have already rolled for this Giveaway."
+  }
+
+  "MG_Dice_ReRolled"
+  {
+    "#format" "{1:d}{2:d}"
+    "en" "Your last roll was {1}. You have {2} re-rolls remaining."
+  }
+
+  "MG_Dice_ReRoll_Disabled"
+  {
+    "en" "ReRolls are not enabled."
+  }
+
+  "MG_Dice_ReRoll_None"
+  {
+    "en" "You have used all of your re-rolls for this Giveaway."
+  }
+
+  "MG_Dice_ReRoll_Roll_Needed"
+  {
+    "en" "You haven't performed your first roll yet!"
+  }
+
+  "MG_Dice_Win"
+  {
+    "#format" "{1:s}{2:d}"
+    "en" "{1} has won the Giveaway with a roll of {2}!"
+  }
+
+  "MG_Dice_Win_Perfect"
+  {
+    "#format" "{1:s}{2:d}"
+    "en" "{1} has won the Giveaway with a PERFECT roll of {2}!"
+  }
+
+  "MG_Dice_Tie"
+  {
+    "en" "There was a tie! Picking a winner at random from those who tied."
+  }
+
+  "MG_Dice_Rigged"
+  {
+    "#format" "{1:s}"
+    "en" "Rigged the Giveaway in favor of {1}!"
+  }
+
+  "MG_Number_Start"
+  {
+    "#format" "{1:s},{2:d},{3:d}"
+    "en" "A Number-Guess Giveaway has started! Type `!{1} <number>` ({2}-{3}) to participate."
+  }
+}
+
+// vim: et sts=2 sw=2
