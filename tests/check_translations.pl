@@ -83,7 +83,7 @@ while (my ($line, $p) = each %{$report{invalid}})
 {
   print "[*] Line $line: $p\n";
 }
-print "Unused: @{$report{unused}}\n" if $unused;
+do { local $" = ', '; print "Unused: @{$report{unused}}\n" if $unused };
 
 # Exit status for git hook
 exit 1 if $invalid;
