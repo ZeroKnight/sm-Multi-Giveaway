@@ -8,6 +8,8 @@ use strict;
 use warnings;
 use v5.14;
 
+use File::Basename;
+
 my @cfiles = ('multi-giveaway.sp');
 my @tfiles = ('Multi-Giveaway.phrases.txt');
 my $tpath  = 'translations';
@@ -17,6 +19,8 @@ my %report = (
   invalid => {}, # Phrases used that do not exist in a translation file
   unused  => []  # Phrases available but not used
 );
+
+chdir dirname($0);
 
 # Scan our translation file(s)
 foreach my $f (@tfiles)
@@ -74,7 +78,6 @@ my $unused = @{$report{unused}};
 my $total_uses = (keys %{$report{valid}}) + (keys %{$report{invalid}});
 
 print "$total_uses phrase uses out of " . scalar @phrases . " total\n";
-print "  $valid valid \n";
 print($invalid ? '✗' : '✓', " $invalid invalid\n");
 print($unused  ? '✗' : '✓', " $unused unused\n");
 
