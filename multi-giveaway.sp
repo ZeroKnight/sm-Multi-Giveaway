@@ -188,9 +188,9 @@ void GetTypeName(const GiveawayType type, char[] str, int sz)
   switch (type)
   {
     case GT_Invalid: return;
-    case GT_Dice:    StrCopy(str, sz, "Dice");
-    case GT_Number:  StrCopy(str, sz, "Number");
-    case GT_Kill:    StrCopy(str, sz, "Kill");
+    case GT_Dice:    strcopy(str, sz, "Dice");
+    case GT_Number:  strcopy(str, sz, "Number");
+    case GT_Kill:    strcopy(str, sz, "Kill");
     default:         return;
   }
 }
@@ -220,13 +220,13 @@ bool CanParticipate(const int client)
     {
       case 0:
       {
-        StrCopy(phrase, sizeof(phrase),
+        strcopy(phrase, sizeof(phrase),
                 spectating ? "MG_Ineligible_Spec" : "MG_Ineligible_Alive");
       }
       case 1:
       {
         if (spectating)
-          StrCopy(phrase, sizeof(phrase), "MG_Ineligible_Spec");
+          strcopy(phrase, sizeof(phrase), "MG_Ineligible_Spec");
       }
     }
     if (strlen(phrase))
