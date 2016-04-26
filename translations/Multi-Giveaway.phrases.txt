@@ -32,13 +32,19 @@
     "en" "There is already a Giveaway in progress: {1}"
   }
 
-  "MG_Invalid_Type"
+  "MG_Type_Disabled"
+  {
+    "#format" "{1:s}"
+    "en" "The {1} Giveaway is currently disabled."
+  }
+
+  "MG_Type_Invalid"
   {
     "#format" "{1:s}"
     "en" "Invalid Giveaway type: {1}"
   }
 
-  "MG_Invalid_Action"
+  "MG_Action_Invalid"
   {
     "#format" "{1:s}{2:s}"
     "en" "Invalid action: {1} Valid actions: {2}"

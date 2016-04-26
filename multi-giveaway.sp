@@ -203,6 +203,11 @@ GiveawayType GetType(const char[] typename)
   else return GT_Invalid;
 }
 
+bool IsTypeEnabled(const GiveawayType type)
+{
+  return view_as<GiveawayType>(cv_enabled_types.IntValue) & type ? true : false;
+}
+
 void GetTypeOpts(char[] str, const int sz)
 {
   char opt[64];
@@ -249,7 +254,12 @@ bool Giveaway_Start(const GiveawayType type,
   GetTypeOpts(typeopts, sizeof(typeopts));
   if (type == GT_Invalid)
   {
-    ReplyToCommand(client, "%s %t", PLUGIN_TAG, "MG_Invalid_Type", typename);
+    ReplyToCommand(client, "%s %t", PLUGIN_TAG, "MG_Type_Invalid", typename);
+    return false;
+  }
+  else if (!IsTypeEnabled(type) && !restarting)
+  {
+    ReplyToCommand(client, "%s %t", PLUGIN_TAG, "MG_Type_Disabled", typename);
     return false;
   }
   else if (type != GT_Dice) // XXX: Temporary
@@ -596,7 +606,7 @@ public Action Command_MultiGiveaway(int client, int args)
     Giveaway_Status(client);
   else
   {
-    ReplyToCommand(client, "%s %t", PLUGIN_TAG, "MG_Invalid_Action", action,
+    ReplyToCommand(client, "%s %t", PLUGIN_TAG, "MG_Action_Invalid", action,
                    "start, stop, restart, status");
   }
 
