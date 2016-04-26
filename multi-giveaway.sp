@@ -528,6 +528,7 @@ public void OnPluginStart()
   char translatefile[64];
   Format(translatefile, sizeof(translatefile), "%s.phrases", PLUGIN_NAME);
   LoadTranslations(translatefile);
+  LoadTranslations("common.phrases");
 }
 
 public void OnMapStart()
