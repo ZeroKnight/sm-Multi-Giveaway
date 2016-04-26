@@ -92,15 +92,15 @@ void RegisterConVars()
     true, float(GT_All));
   cv_player_state = CreateConVar(
     "multi_giveaway_player_state",
-    "7",
-    "Bit-field (sum of options) of player states that are valid for giveaway participation: 1 - Spectator, 2 - Dead, 4 - Alive",
+    "2",
+    "Player states eligible for Giveaway participation; each setting includes the previous one: 0 - Alive only, 1 - Dead, 2 - Spectator",
     FCVAR_NONE,
-    true, 1.0,
-    true, 7.0);
+    true, 0.0,
+    true, 2.0);
   cv_min_conn_time = CreateConVar( // TODO: Allow certain giveaways to override (eg. kill objective)
     "multi_giveaway_min_conn_time",
     "300", // 5 minutes
-    "Amount of time in seconds a player must be connected to participate in a giveaway",
+    "Amount of time in seconds a player must be connected to participate in a Giveaway",
     FCVAR_NONE,
     true, 0.0);
 
@@ -206,6 +206,46 @@ GiveawayType GetType(const char[] typename)
 bool IsTypeEnabled(const GiveawayType type)
 {
   return view_as<GiveawayType>(cv_enabled_types.IntValue) & type ? true : false;
+}
+
+bool CanParticipate(const int client)
+{
+  bool spectating = GetClientTeam(client) == 1;
+
+  /* Check player state */
+  if (!IsPlayerAlive(client))
+  {
+    char phrase[32];
+    switch (cv_player_state.IntValue)
+    {
+      case 0:
+      {
+        StrCopy(phrase, sizeof(phrase),
+                spectating ? "MG_Ineligible_Spec" : "MG_Ineligible_Alive");
+      }
+      case 1:
+      {
+        if (spectating)
+          StrCopy(phrase, sizeof(phrase), "MG_Ineligible_Spec");
+      }
+    }
+    if (strlen(phrase))
+    {
+      ReplyToCommand(client, "%s %t", PLUGIN_TAG, phrase);
+      return false;
+    }
+  }
+
+  /* Check connection time */
+  float time = GetClientTime(client);
+  int delta = cv_min_conn_time.IntValue - RoundToCeil(time);
+  if (time < cv_min_conn_time.FloatValue)
+  {
+    ReplyToCommand(client, "%s %t", PLUGIN_TAG, "MG_Not_Connected_Long_Enough",
+                   delta);
+    return false;
+  }
+  return true;
 }
 
 void GetTypeOpts(char[] str, const int sz)
@@ -615,6 +655,8 @@ public Action Command_MultiGiveaway(int client, int args)
 
 public Action Command_Dice_Roll(int client, int args)
 {
+  if (!CanParticipate(client)) return Plugin_Handled;
+
   GiveawayType cg; GiveawayData.GetValue("Current", cg);
   if (cg != GT_Dice)
   {
@@ -632,6 +674,8 @@ public Action Command_Dice_Roll(int client, int args)
 
 public Action Command_Dice_ReRoll(int client, int args)
 {
+  if (!CanParticipate(client)) return Plugin_Handled;
+
   int rerolls = cv_dice_rerolls.IntValue;
   if (!rerolls)
   {

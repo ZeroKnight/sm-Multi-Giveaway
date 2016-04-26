@@ -32,6 +32,22 @@
     "en" "There is already a Giveaway in progress: {1}"
   }
 
+  "MG_Ineligible_Alive"
+  {
+    "en" "You must be alive to participate in the Giveaway"
+  }
+
+  "MG_Ineligible_Spec"
+  {
+    "en" "You must be playing to participate in the Giveaway"
+  }
+
+  "MG_Not_Connected_Long_Enough"
+  {
+    "#format" "{1:d}"
+    "en" "You have not been connected long enough to participate in the Giveaway. Try again in {1} seconds."
+  }
+
   "MG_Type_Disabled"
   {
     "#format" "{1:s}"
