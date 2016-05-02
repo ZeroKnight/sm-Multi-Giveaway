@@ -42,7 +42,6 @@ const int nGTypes = 3;
 // Global state variables/data structures
 StringMap GiveawayData;
 ArrayList Dice_PlayerRolls;
-ArrayList Dice_BestRolls;
 ArrayList Dice_ReRolls;
 ArrayList Number_PlayerGuesses;
 
@@ -361,19 +360,24 @@ void Giveaway_Stop(const int client, const bool restarting=false)
     {
       if (!restarting)
       {
-        if (Dice_BestRolls.Length)
+        if (Dice_PlayerRolls.Length)
         {
           int best = Dice_GetBestRoll();
-          int nbest = Dice_BestRolls.Length;
+          ArrayList bestrolls = new ArrayList(1);
           int rigged; GiveawayData.GetValue("Dice_RiggedPlayer", rigged);
           int winner;
           char name[MAX_NAME_LENGTH];
-          if (nbest > 1)
+
+          // Determine whether more than 1 player has the best roll
+          for (int i = 0; i < Dice_PlayerRolls.Length; ++i)
+            if (Dice_PlayerRolls.Get(i) == best) bestrolls.Push(i);
+
+          if (bestrolls.Length > 1)
           {
             PrintToChatAll("%s %t", PLUGIN_TAG, "MG_Dice_Tie");
-            winner = Dice_BestRolls.Get(GetRandomInt(0, nbest-1));
+            winner = bestrolls.Get(GetRandomInt(0, bestrolls.Length - 1));
           }
-          else winner = Dice_BestRolls.Get(0);
+          else winner = bestrolls.Get(0);
 
           // Rig the Giveaway
           if (rigged != -1) winner = rigged;
@@ -390,7 +394,6 @@ void Giveaway_Stop(const int client, const bool restarting=false)
       GiveawayData.SetValue("Dice_RiggedPlayer", -1);
       ArraySetAll(Dice_PlayerRolls, 0);
       ArraySetAll(Dice_ReRolls, cv_dice_rerolls.IntValue);
-      Dice_BestRolls.Clear();
     }
     case GT_Number:
     {
@@ -469,13 +472,6 @@ void Dice_Roll(const int client, const bool rerolling=false)
   if (rigged != -1 && client == rigged) rand = cv_dice_max.IntValue;
 
   Dice_PlayerRolls.Set(client, rand);
-  if (rand > best)
-  {
-    Dice_BestRolls.Clear();
-    Dice_BestRolls.Push(client);
-  }
-  else if (rand == best && Dice_BestRolls.FindValue(client) == -1)
-    Dice_BestRolls.Push(client);
 
   char name[MAX_NAME_LENGTH];
   GetClientName(client, name, sizeof(name));
@@ -509,7 +505,6 @@ int Dice_GetBestRoll()
     int roll = Dice_PlayerRolls.Get(i);
     if (roll > best) best = roll;
   }
-
   return best;
 }
 
@@ -537,7 +532,6 @@ public void OnMapStart()
   GiveawayData         = new StringMap();
   Current_TypeOpts     = new ArrayList(TYPEOPT_MAX_LEN);
   Dice_PlayerRolls     = new ArrayList(1, MAXPLAYERS);
-  Dice_BestRolls       = new ArrayList(1);
   Dice_ReRolls         = new ArrayList(1, MAXPLAYERS);
   Number_PlayerGuesses = new ArrayList(1, MAXPLAYERS);
 
@@ -565,18 +559,7 @@ public void OnClientDisconnect(int client)
   if (s == client) GiveawayData.SetValue("Starter", -1);
 
   // Dice
-  int best = Dice_GetBestRoll();
-  if (Dice_PlayerRolls.Length && best == Dice_PlayerRolls.Get(client))
-  {
-    for (int i = 0; i < Dice_PlayerRolls.Length; ++i)
-    {
-      if (Dice_BestRolls.Get(i) == client) continue;
-      best = Dice_PlayerRolls.Get(i);
-      break;
-    }
-  }
   Dice_PlayerRolls.Set(client, 0);
-  Dice_BestRolls.Erase(client);
   GiveawayData.SetValue("Dice_RiggedPlayer", -1);
 
   // Number Guess
