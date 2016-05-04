@@ -174,6 +174,40 @@
     "#format" "{1:s},{2:d},{3:d}"
     "en" "A Number-Guess Giveaway has started! Type `!{1} <number>` ({2}-{3}) to participate."
   }
+
+  "MG_Number_Guess"
+  {
+    "#format" "{1:s}{2:d}"
+    "en" "{1} guessed {2}!"
+  }
+
+  "MG_Number_Guessed"
+  {
+    "en" "You have already guessed for this Giveaway."
+  }
+
+  "MG_Number_Not_Unique"
+  {
+    "en" "That number has been guessed already. Try again!"
+  }
+
+  "MG_Number_Bad_Range"
+  {
+    "#format" "{1:d}{2:d}"
+    "en" "You must guess within the range of {1}-{2}."
+  }
+
+  "MG_Number_Win"
+  {
+    "#format" "{1:s}{2:d}"
+    "en" "{1} guessed the lucky number {2} and won the Giveaway!"
+  }
+
+  "MG_Number_Win_Close"
+  {
+    "#format" "{1:s}{2:d}{3:d}"
+    "en" "{1} had the closest guess of {2}! The lucky number was {3}"
+  }
 }
 
 // vim: et sts=2 sw=2

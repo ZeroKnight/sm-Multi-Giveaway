@@ -14,7 +14,7 @@
 char PLUGIN_NAME[]    = "Multi-Giveaway";
 char PLUGIN_AUTHOR[]  = "Alex \"ZeroKnight\" George";
 char PLUGIN_DESC[]    = "Expansive Giveaway system with numerous types of Giveaway events and stats";
-char PLUGIN_VERSION[] = "0.1.0";
+char PLUGIN_VERSION[] = "0.2.0";
 char PLUGIN_URL[]     = "http:/github.com/ZeroKnight/sm-Multi-Giveaway";
 char PLUGIN_TAG[]     = "[MG]";
 
@@ -64,6 +64,11 @@ CVAR(dice_rerolls);
 CVAR(number_min);
 CVAR(number_max);
 CVAR(number_show_guesses);
+
+int abs(const int i)
+{
+  return (i > 0) ? i : -i;
+}
 
 void RegisterConVars()
 {
@@ -171,6 +176,8 @@ void RegisterCommands()
                 "Rolls the dice during a Dice Giveaway");
   RegConsoleCmd("sm_reroll", Command_Dice_ReRoll,
                 "Rolls the dice again during a Giveaway, giving you a new result (for better or worse!");
+  RegConsoleCmd("sm_guess", Command_Number_Guess,
+                "Guess a number for the Number-Guess Giveaway");
 }
 
 bool LoadConfig()
@@ -301,7 +308,7 @@ bool Giveaway_Start(const GiveawayType type,
     ReplyToCommand(client, "%s %t", PLUGIN_TAG, "MG_Type_Disabled", typename);
     return false;
   }
-  else if (type != GT_Dice) // XXX: Temporary
+  else if (type == GT_Kill) // XXX: Temporary
   {
     ReplyToCommand(client, "%s Not yet implemented!", PLUGIN_TAG);
     return false;
@@ -328,6 +335,8 @@ bool Giveaway_Start(const GiveawayType type,
     }
     case GT_Number:
     {
+      int rand = GetRandomInt(cv_number_min.IntValue, cv_number_max.IntValue);
+      GiveawayData.SetValue("Number_Target", rand);
       PrintToChatAll("%s %t", PLUGIN_TAG, "MG_Number_Start", "guess",
                      cv_number_min.IntValue, cv_number_max.IntValue);
     }
@@ -398,7 +407,44 @@ void Giveaway_Stop(const int client, const bool restarting=false)
 
     case GT_Number:
     {
-      ArraySetAll(Number_PlayerGuesses, -1);
+      if (!restarting)
+      {
+        if (Number_PlayerGuesses.Length)
+        {
+          int target; GiveawayData.GetValue("Number_Target", target);
+          char name[MAX_NAME_LENGTH];
+
+          if (winner == -1)
+          {
+            /* Nobody guessed bang on, so find the closest */
+            int closest = Number_GetClosestGuess();
+            ArrayList tied = new ArrayList(1);
+
+            /* Determine whether more than 1 player has the closest guess */
+            for (int i = 0; i < Number_PlayerGuesses.Length; ++i)
+              if (Number_PlayerGuesses.Get(i) == closest) tied.Push(i);
+
+            if (tied.Length > 1)
+            {
+              PrintToChatAll("%s %t", PLUGIN_TAG, "MG_Giveaway_Tie");
+              winner = tied.Get(GetRandomInt(0, tied.Length - 1));
+            }
+            else winner = tied.Get(0);
+            GetClientName(winner, name, sizeof(name));
+            PrintToChatAll("%s %t", PLUGIN_TAG, "MG_Number_Win_Close", name,
+                           closest, target);
+          }
+          else
+          {
+            GetClientName(winner, name, sizeof(name));
+            PrintToChatAll("%s %t", PLUGIN_TAG, "MG_Number_Win", name, target);
+          }
+        }
+        else
+          PrintToChatAll("%s %t", PLUGIN_TAG, "MG_Giveaway_Cancelled",
+                         typename);
+      }
+      ArraySetAll(Number_PlayerGuesses, 0);
     }
 
     case GT_Kill:
@@ -510,6 +556,29 @@ int Dice_GetBestRoll()
   return best;
 }
 
+int Number_GetClosestGuess()
+{
+  int closest = 0;
+  int target; GiveawayData.GetValue("Number_Target", target);
+  PrintToServer("target = %d", target);
+  for (int i = 0; i < Number_PlayerGuesses.Length; ++i)
+  {
+    int guess = Number_PlayerGuesses.Get(i);
+    if (guess == 0) continue; // No guess for this client
+    int diff = abs(target - guess);
+    int cdiff = abs(target - closest);
+    if (closest == 0 || (diff < cdiff)) closest = guess;
+  }
+  return closest;
+}
+
+bool Number_IsGuessUnique(const int client, const int guess)
+{
+  for (int i = 0; i < Number_PlayerGuesses.Length; ++i)
+    if (i != client && guess == Number_PlayerGuesses.Get(i)) return false;
+  return true;
+}
+
 // Forwards  ///////////////////////
 
 public void OnPluginStart()
@@ -548,9 +617,8 @@ public void OnMapStart()
   ArraySetAll(Dice_ReRolls, cv_dice_rerolls.IntValue);
 
   // Number Guess
-  GiveawayData.SetValue("Number_ClosestGuess", -1);
-  // TODO: replace with a getbest function like dice; perhaps even a unique one?
-  // eg GetLargestElement?
+  GiveawayData.SetValue("Number_Target", -1);
+  ArraySetAll(Number_PlayerGuesses, 0);
 }
 
 public void OnClientDisconnect(int client)
@@ -566,7 +634,7 @@ public void OnClientDisconnect(int client)
   Dice_PlayerRolls.Set(client, 0);
 
   // Number Guess
-  Number_PlayerGuesses.Set(client, -1);
+  Number_PlayerGuesses.Set(client, 0);
 }
 
 // Callbacks ///////////////////////
@@ -729,6 +797,91 @@ public Action Command_Dice_Rig(int client, int args)
     GiveawayData.SetValue("Winner", target[0]);
   }
   else ReplyToTargetError(client, rv);
+
+  return Plugin_Handled;
+
+}
+
+public Action Command_Number_Guess(int client, int args)
+{
+  if (!CanParticipate(client)) return Plugin_Handled;
+
+  GiveawayType cg; GiveawayData.GetValue("Current", cg);
+  if (cg != GT_Number)
+  {
+    char typename[32];
+    GetTypeName(GT_Dice, typename, sizeof(typename));
+    ReplyToCommand(client, "%s %t", PLUGIN_TAG, "MG_No_Giveaway_Type",
+                   typename);
+    return Plugin_Handled;
+  }
+  if (args < 1)
+  {
+    ReplyToCommand(client, "%s Usage: sm_guess <number>", PLUGIN_TAG);
+    return Plugin_Handled;
+  }
+  else if (Number_PlayerGuesses.Get(client))
+  {
+    ReplyToCommand(client, "%s %t", PLUGIN_TAG, "MG_Number_Guessed");
+    return Plugin_Handled;
+  }
+
+  int guess;
+  char arg[8];
+  GetCmdArg(1, arg, sizeof(arg));
+
+  if (!StringToIntEx(arg, guess))
+  {
+    ReplyToCommand(client, "%s Usage: sm_guess <number>", PLUGIN_TAG);
+    return Plugin_Handled;
+  }
+  else if (guess >= cv_number_min.IntValue && guess <= cv_number_max.IntValue)
+  {
+    int p; GiveawayData.GetValue("Participants", p);
+    int target; GiveawayData.GetValue("Number_Target", target);
+
+    GiveawayData.SetValue("Participants", ++p);
+    Number_PlayerGuesses.Set(client, guess);
+    if (guess == target)
+    {
+      GiveawayData.SetValue("Winner", client);
+      Giveaway_Stop(0);
+    }
+    else if (!Number_IsGuessUnique(client, guess))
+    {
+      ReplyToCommand(client, "%s %t", PLUGIN_TAG, "MG_Number_Not_Unique");
+      return Plugin_Handled;
+    }
+    else
+    {
+      char name[MAX_NAME_LENGTH];
+      GetClientName(client, name, sizeof(name));
+      switch (cv_number_show_guesses.IntValue)
+      {
+        case 0:
+        {
+          ReplyToCommand(client, "%s %t", PLUGIN_TAG, "MG_Number_Guess", "You",
+                         guess);
+        }
+        case 1:
+        {
+          char str[128];
+          Format(str, sizeof(str), "%s %T", PLUGIN_TAG, "MG_Number_Guess",
+                 LANG_SERVER, name, guess);
+          SendToAdmins(str);
+          ReplyToCommand(client, "%s %t", PLUGIN_TAG, "MG_Number_Guess", name,
+                         guess);
+        }
+        case 2:
+        {
+          PrintToChatAll("%s %t", PLUGIN_TAG, "MG_Number_Guess", name, guess);
+        }
+      }
+    }
+  }
+  else
+    ReplyToCommand(client, "%s %t", PLUGIN_TAG, "MG_Number_Bad_Range",
+                   cv_number_min.IntValue, cv_number_max.IntValue);
 
   return Plugin_Handled;
 }
