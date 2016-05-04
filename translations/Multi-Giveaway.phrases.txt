@@ -32,6 +32,11 @@
     "en" "There is already a Giveaway in progress: {1}"
   }
 
+  "MG_Giveaway_Tie"
+  {
+    "en" "There was a tie! Picking a winner at random from those who tied."
+  }
+
   "MG_Ineligible_Alive"
   {
     "en" "You must be alive to participate in the Giveaway"
@@ -156,11 +161,6 @@
   {
     "#format" "{1:s}{2:d}"
     "en" "{1} has won the Giveaway with a PERFECT roll of {2}!"
-  }
-
-  "MG_Dice_Tie"
-  {
-    "en" "There was a tie! Picking a winner at random from those who tied."
   }
 
   "MG_Dice_Rigged"

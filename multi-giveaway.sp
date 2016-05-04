@@ -354,6 +354,8 @@ void Giveaway_Stop(const int client, const bool restarting=false)
     ShowActivity2(client, PLUGIN_TAG, " %t", "MG_Stop", typename);
     LogAction(client, -1, "%L stopped Giveaway \"%s\"", client, typename);
   }
+
+  int winner; GiveawayData.GetValue("Winner", winner);
   switch (cg)
   {
     case GT_Dice:
@@ -362,43 +364,43 @@ void Giveaway_Stop(const int client, const bool restarting=false)
       {
         if (Dice_PlayerRolls.Length)
         {
-          int best = Dice_GetBestRoll();
-          ArrayList bestrolls = new ArrayList(1);
-          int rigged; GiveawayData.GetValue("Dice_RiggedPlayer", rigged);
-          int winner;
+          int bestroll = Dice_GetBestRoll();
+          ArrayList tied = new ArrayList(1);
+          int rigged; GiveawayData.GetValue("Winner", rigged);
           char name[MAX_NAME_LENGTH];
 
-          // Determine whether more than 1 player has the best roll
+          /* Determine whether more than 1 player has the best roll */
           for (int i = 0; i < Dice_PlayerRolls.Length; ++i)
-            if (Dice_PlayerRolls.Get(i) == best) bestrolls.Push(i);
+            if (Dice_PlayerRolls.Get(i) == bestroll) tied.Push(i);
 
-          if (bestrolls.Length > 1)
+          if (tied.Length > 1)
           {
-            PrintToChatAll("%s %t", PLUGIN_TAG, "MG_Dice_Tie");
-            winner = bestrolls.Get(GetRandomInt(0, bestrolls.Length - 1));
+            PrintToChatAll("%s %t", PLUGIN_TAG, "MG_Giveaway_Tie");
+            winner = tied.Get(GetRandomInt(0, tied.Length - 1));
           }
-          else winner = bestrolls.Get(0);
+          else winner = tied.Get(0);
 
-          // Rig the Giveaway
+          /* Rig the Giveaway */
           if (rigged != -1) winner = rigged;
 
           GetClientName(winner, name, sizeof(name));
           PrintToChatAll("%s %t", PLUGIN_TAG,
-                         best == cv_dice_max.IntValue ?
-                          "MG_Dice_Win_Perfect" : "MG_Dice_Win", name, best);
+                         bestroll == cv_dice_max.IntValue ?
+                         "MG_Dice_Win_Perfect" : "MG_Dice_Win", name, bestroll);
         }
         else
           PrintToChatAll("%s %t", PLUGIN_TAG, "MG_Giveaway_Cancelled",
                          typename);
       }
-      GiveawayData.SetValue("Dice_RiggedPlayer", -1);
       ArraySetAll(Dice_PlayerRolls, 0);
       ArraySetAll(Dice_ReRolls, cv_dice_rerolls.IntValue);
     }
+
     case GT_Number:
     {
       ArraySetAll(Number_PlayerGuesses, -1);
     }
+
     case GT_Kill:
     {
     }
@@ -406,6 +408,7 @@ void Giveaway_Stop(const int client, const bool restarting=false)
   GiveawayData.SetValue("Current", GT_Invalid);
   GiveawayData.SetValue("Participants", -1);
   GiveawayData.SetValue("Starter", -1);
+  GiveawayData.SetValue("Winner", -1);
   Current_TypeOpts.Clear();
 }
 
@@ -462,9 +465,8 @@ void Dice_Roll(const int client, const bool rerolling=false)
   }
 
   int rand = GetRandomInt(cv_dice_min.IntValue, cv_dice_max.IntValue);
-  int best = Dice_GetBestRoll();
   int p; GiveawayData.GetValue("Participants", p);
-  int rigged; GiveawayData.GetValue("Dice_RiggedPlayer", rigged);
+  int rigged; GiveawayData.GetValue("Winner", rigged);
 
   if (!rerolling) GiveawayData.SetValue("Participants", ++p);
 
@@ -538,9 +540,9 @@ public void OnMapStart()
   GiveawayData.SetValue("Current", GT_Invalid);
   GiveawayData.SetValue("Participants", -1);
   GiveawayData.SetValue("Starter", -1);
+  GiveawayData.SetValue("Winner", -1);
 
   // Dice
-  GiveawayData.SetValue("Dice_RiggedPlayer", -1);
   ArraySetAll(Dice_PlayerRolls, 0);
   // FIXME: Hook into convar change and re-set this array
   ArraySetAll(Dice_ReRolls, cv_dice_rerolls.IntValue);
@@ -555,12 +557,13 @@ public void OnClientDisconnect(int client)
 {
   int p; GiveawayData.GetValue("Participants", p);
   int s; GiveawayData.GetValue("Starter", s);
+  int w; GiveawayData.GetValue("Winner", w);
   GiveawayData.SetValue("Participants", p-1);
   if (s == client) GiveawayData.SetValue("Starter", -1);
+  if (w == client) GiveawayData.SetValue("Winner", -1);
 
   // Dice
   Dice_PlayerRolls.Set(client, 0);
-  GiveawayData.SetValue("Dice_RiggedPlayer", -1);
 
   // Number Guess
   Number_PlayerGuesses.Set(client, -1);
@@ -660,6 +663,16 @@ public Action Command_Dice_ReRoll(int client, int args)
 {
   if (!CanParticipate(client)) return Plugin_Handled;
 
+  GiveawayType cg; GiveawayData.GetValue("Current", cg);
+  if (cg != GT_Dice)
+  {
+    char typename[32];
+    GetTypeName(GT_Dice, typename, sizeof(typename));
+    ReplyToCommand(client, "%s %t", PLUGIN_TAG, "MG_No_Giveaway_Type",
+                   typename);
+    return Plugin_Handled;
+  }
+
   int rerolls = cv_dice_rerolls.IntValue;
   if (!rerolls)
   {
@@ -713,7 +726,7 @@ public Action Command_Dice_Rig(int client, int args)
   if (rv)
   {
     ShowActivity2(client, PLUGIN_TAG, " %t", "MG_Dice_Rigged", target_name);
-    GiveawayData.SetValue("Dice_RiggedPlayer", target[0]);
+    GiveawayData.SetValue("Winner", target[0]);
   }
   else ReplyToTargetError(client, rv);
 
