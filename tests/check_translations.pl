@@ -79,7 +79,7 @@ my $total_uses = (keys %{$report{valid}}) + (keys %{$report{invalid}});
 
 print "$total_uses phrase uses out of " . scalar @phrases . " total\n";
 print($invalid ? '✗' : '✓', " $invalid invalid\n");
-print($unused  ? '✗' : '✓', " $unused unused\n");
+print($unused  ? '!' : '✓', " $unused unused\n");
 
 print "Invalid uses:\n" if $invalid;
 while (my ($line, $p) = each %{$report{invalid}})
