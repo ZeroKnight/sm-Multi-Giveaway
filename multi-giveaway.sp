@@ -65,9 +65,12 @@ CVAR(number_min);
 CVAR(number_max);
 CVAR(number_show_guesses);
 
-int abs(const int i)
+int abs(const int i) { return (i > 0) ? i : -i; }
+int min(const int i, const int k) { return (i < k) ? i : k; }
+int max(const int i, const int k) { return (i > k) ? i : k; }
+int clamp(const int i, const int minval, const int maxval)
 {
-  return (i > 0) ? i : -i;
+  return max(minval, min(i, maxval));
 }
 
 void RegisterConVars()
