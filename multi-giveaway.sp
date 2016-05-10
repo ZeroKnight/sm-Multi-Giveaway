@@ -214,6 +214,17 @@ bool IsTypeEnabled(const GiveawayType type)
   return view_as<GiveawayType>(cv_enabled_types.IntValue) & type ? true : false;
 }
 
+GiveawayType GetCurrentGiveaway()
+{
+  GiveawayType cg = GetCurrentGiveaway();
+  return cg;
+}
+
+void SetCurrentGiveaway(const GiveawayType type)
+{
+  GiveawayData.SetValue("Current", type);
+}
+
 bool CanParticipate(const int client)
 {
   bool spectating = GetClientTeam(client) == 1;
@@ -285,7 +296,7 @@ bool Giveaway_Start(const GiveawayType type,
                     const int client,
                     const bool restarting=false)
 {
-  GiveawayType cg; GiveawayData.GetValue("Current", cg);
+  GiveawayType cg = GetCurrentGiveaway();
   char typename_current[32];
   GetTypeName(cg, typename_current, sizeof(typename_current));
   if (cg != GT_Invalid)
@@ -314,7 +325,7 @@ bool Giveaway_Start(const GiveawayType type,
     return false;
   }
 
-  GiveawayData.SetValue("Current", type);
+  SetCurrentGiveaway(type);
   GiveawayData.SetValue("Participants", 0);
   GiveawayData.SetValue("Starter", client);
 
@@ -349,7 +360,7 @@ bool Giveaway_Start(const GiveawayType type,
 
 void Giveaway_Stop(const int client, const bool restarting=false)
 {
-  GiveawayType cg; GiveawayData.GetValue("Current", cg);
+  GiveawayType cg = GetCurrentGiveaway();
   if (cg == GT_Invalid)
   {
     ReplyToCommand(client, "%s %t", PLUGIN_TAG, "MG_No_Giveaway");
@@ -451,7 +462,7 @@ void Giveaway_Stop(const int client, const bool restarting=false)
     {
     }
   }
-  GiveawayData.SetValue("Current", GT_Invalid);
+  SetCurrentGiveaway(GT_Invalid);
   GiveawayData.SetValue("Participants", -1);
   GiveawayData.SetValue("Starter", -1);
   GiveawayData.SetValue("Winner", -1);
@@ -460,7 +471,7 @@ void Giveaway_Stop(const int client, const bool restarting=false)
 
 void Giveaway_Restart(const int client)
 {
-  GiveawayType cg; GiveawayData.GetValue("Current", cg);
+  GiveawayType cg = GetCurrentGiveaway();
   if (cg == GT_Invalid)
   {
     ReplyToCommand(client, "%s %t", PLUGIN_TAG, "MG_No_Giveaway");
@@ -480,7 +491,7 @@ void Giveaway_Restart(const int client)
 
 void Giveaway_Status(const int client)
 {
-  GiveawayType cg; GiveawayData.GetValue("Current", cg);
+  GiveawayType cg = GetCurrentGiveaway();
   if (cg == GT_Invalid)
   {
     ReplyToCommand(client, "%s %t", PLUGIN_TAG, "MG_No_Giveaway");
@@ -606,7 +617,7 @@ public void OnMapStart()
   Dice_ReRolls         = new ArrayList(1, MAXPLAYERS);
   Number_PlayerGuesses = new ArrayList(1, MAXPLAYERS);
 
-  GiveawayData.SetValue("Current", GT_Invalid);
+  SetCurrentGiveaway(GT_Invalid);
   GiveawayData.SetValue("Participants", -1);
   GiveawayData.SetValue("Starter", -1);
   GiveawayData.SetValue("Winner", -1);
@@ -712,7 +723,7 @@ public Action Command_Dice_Roll(int client, int args)
 {
   if (!CanParticipate(client)) return Plugin_Handled;
 
-  GiveawayType cg; GiveawayData.GetValue("Current", cg);
+  GiveawayType cg = GetCurrentGiveaway();
   if (cg != GT_Dice)
   {
     char typename[32];
@@ -731,7 +742,7 @@ public Action Command_Dice_ReRoll(int client, int args)
 {
   if (!CanParticipate(client)) return Plugin_Handled;
 
-  GiveawayType cg; GiveawayData.GetValue("Current", cg);
+  GiveawayType cg = GetCurrentGiveaway();
   if (cg != GT_Dice)
   {
     char typename[32];
@@ -770,7 +781,7 @@ public Action Command_Dice_ReRoll(int client, int args)
 
 public Action Command_Dice_Rig(int client, int args)
 {
-  GiveawayType cg; GiveawayData.GetValue("Current", cg);
+  GiveawayType cg = GetCurrentGiveaway();
   if (cg != GT_Dice)
   {
     char typename[32];
@@ -799,14 +810,13 @@ public Action Command_Dice_Rig(int client, int args)
   else ReplyToTargetError(client, rv);
 
   return Plugin_Handled;
-
 }
 
 public Action Command_Number_Guess(int client, int args)
 {
   if (!CanParticipate(client)) return Plugin_Handled;
 
-  GiveawayType cg; GiveawayData.GetValue("Current", cg);
+  GiveawayType cg = GetCurrentGiveaway();
   if (cg != GT_Number)
   {
     char typename[32];
