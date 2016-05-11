@@ -80,7 +80,7 @@ void RegisterConVars()
   // XXX: Function overloads would be nice. Or casting that worked on strings.
   char sGT_All[32]; IntToString(view_as<int>(GT_All), sGT_All, sizeof(sGT_All));
 
-  // Core
+  /* Core */
   cv_version = CreateConVar(
     "multi_giveaway_version",
     PLUGIN_VERSION,
@@ -111,7 +111,7 @@ void RegisterConVars()
     FCVAR_NONE,
     true, 0.0);
 
-  // Dice
+  /* Dice */
   cv_dice_min = CreateConVar(
     "multi_giveaway_dice_min",
     "1",
@@ -136,7 +136,7 @@ void RegisterConVars()
     FCVAR_NONE,
     true, 0.0);
 
-  // Number Guess
+  /* Number Guess */
   cv_number_min = CreateConVar(
     "multi_giveaway_number_min",
     "1",
@@ -304,8 +304,7 @@ bool Giveaway_Start(const GiveawayType type,
   GetTypeName(cg, typename_current, sizeof(typename_current));
   if (cg != GT_Invalid)
   {
-    ReplyToCommand(client, "%s %t", PLUGIN_TAG, "MG_Giveaway_In_Progress",
-                   typename_current);
+    ReplyToCommand(client, "%s %t", PLUGIN_TAG, "MG_Giveaway_In_Progress", typename_current);
     return false;
   }
 
@@ -335,8 +334,7 @@ bool Giveaway_Start(const GiveawayType type,
   if (!restarting)
   {
     ShowActivity2(client, PLUGIN_TAG, " %t", "MG_Start", typename);
-    LogAction(client, -1, "%L started Giveaway \"%s\" with options: %s",
-              client, typename, typeopts);
+    LogAction(client, -1, "%L started Giveaway \"%s\" with options: %s", client, typename, typeopts);
   }
   switch (type)
   {
@@ -351,8 +349,7 @@ bool Giveaway_Start(const GiveawayType type,
     {
       int rand = GetRandomInt(cv_number_min.IntValue, cv_number_max.IntValue);
       GiveawayData.SetValue("Number_Target", rand);
-      PrintToChatAll("%s %t", PLUGIN_TAG, "MG_Number_Start", "guess",
-                     cv_number_min.IntValue, cv_number_max.IntValue);
+      PrintToChatAll("%s %t", PLUGIN_TAG, "MG_Number_Start", "guess", cv_number_min.IntValue, cv_number_max.IntValue);
     }
     case GT_Kill:
     {
@@ -412,8 +409,7 @@ void Giveaway_Stop(const int client, const bool restarting=false)
                          "MG_Dice_Win_Perfect" : "MG_Dice_Win", name, bestroll);
         }
         else
-          PrintToChatAll("%s %t", PLUGIN_TAG, "MG_Giveaway_Cancelled",
-                         typename);
+          PrintToChatAll("%s %t", PLUGIN_TAG, "MG_Giveaway_Cancelled", typename);
       }
       ArraySetAll(Dice_PlayerRolls, 0);
       ArraySetAll(Dice_ReRolls, cv_dice_rerolls.IntValue);
@@ -445,8 +441,7 @@ void Giveaway_Stop(const int client, const bool restarting=false)
             }
             else winner = tied.Get(0);
             GetClientName(winner, name, sizeof(name));
-            PrintToChatAll("%s %t", PLUGIN_TAG, "MG_Number_Win_Close", name,
-                           closest, target);
+            PrintToChatAll("%s %t", PLUGIN_TAG, "MG_Number_Win_Close", name, closest, target);
           }
           else
           {
@@ -455,8 +450,7 @@ void Giveaway_Stop(const int client, const bool restarting=false)
           }
         }
         else
-          PrintToChatAll("%s %t", PLUGIN_TAG, "MG_Giveaway_Cancelled",
-                         typename);
+          PrintToChatAll("%s %t", PLUGIN_TAG, "MG_Giveaway_Cancelled", typename);
       }
       ArraySetAll(Number_PlayerGuesses, 0);
     }
@@ -486,8 +480,7 @@ void Giveaway_Restart(const int client)
   GetTypeOpts(typeopts, sizeof(typeopts));
 
   ShowActivity2(client, PLUGIN_TAG, " %t", "MG_Restart", typename);
-  LogAction(client, -1, "%L restarted Giveaway \"%s\" with options: %s",
-            client, typename, typeopts);
+  LogAction(client, -1, "%L restarted Giveaway \"%s\" with options: %s", client, typename, typeopts);
   Giveaway_Stop(client, true);
   Giveaway_Start(cg, Current_TypeOpts, client, true);
 }
@@ -541,14 +534,12 @@ void Dice_Roll(const int client, const bool rerolling=false)
   {
     case 0:
     {
-      ReplyToCommand(client, "%s %t", PLUGIN_TAG, "MG_Dice_Result", "You",
-                     rand);
+      ReplyToCommand(client, "%s %t", PLUGIN_TAG, "MG_Dice_Result", "You", rand);
     }
     case 1:
     {
       char str[128];
-      Format(str, sizeof(str), "%s %T", PLUGIN_TAG, "MG_Dice_Result",
-             LANG_SERVER, name, rand);
+      Format(str, sizeof(str), "%s %T", PLUGIN_TAG, "MG_Dice_Result", LANG_SERVER, name, rand);
       SendToAdmins(str);
       ReplyToCommand(client, "%s %t", PLUGIN_TAG, "MG_Dice_Result", name, rand);
     }
@@ -593,7 +584,9 @@ bool Number_IsGuessUnique(const int client, const int guess)
   return true;
 }
 
-// Forwards  ///////////////////////
+/***************************************************************\
+ * SourceMod Callbacks
+\***************************************************************/
 
 public void OnPluginStart()
 {
@@ -651,7 +644,9 @@ public void OnClientDisconnect(int client)
   Number_PlayerGuesses.Set(client, 0);
 }
 
-// Callbacks ///////////////////////
+/***************************************************************\
+ * Command Callbacks
+\***************************************************************/
 
 public Action Command_ReloadConfig(int client, int args)
 {
@@ -672,8 +667,7 @@ public Action Command_MultiGiveaway(int client, int args)
   if (!args)
   {
     // Interactive Mode: Menu-based interface
-    ReplyToCommand(client, "%s Interactive mode not yet implemented!",
-                   PLUGIN_TAG);
+    ReplyToCommand(client, "%s Interactive mode not yet implemented!", PLUGIN_TAG);
     return Plugin_Handled;
   }
 
@@ -714,10 +708,7 @@ public Action Command_MultiGiveaway(int client, int args)
   else if (StrEqual(action, "status", false))
     Giveaway_Status(client);
   else
-  {
-    ReplyToCommand(client, "%s %t", PLUGIN_TAG, "MG_Action_Invalid", action,
-                   "start, stop, restart, status");
-  }
+    ReplyToCommand(client, "%s %t", PLUGIN_TAG, "MG_Action_Invalid", action, "start, stop, restart, status");
 
   return Plugin_Handled;
 }
@@ -731,8 +722,7 @@ public Action Command_Dice_Roll(int client, int args)
   {
     char typename[32];
     GetTypeName(GT_Dice, typename, sizeof(typename));
-    ReplyToCommand(client, "%s %t", PLUGIN_TAG, "MG_No_Giveaway_Type",
-                   typename);
+    ReplyToCommand(client, "%s %t", PLUGIN_TAG, "MG_No_Giveaway_Type", typename);
     return Plugin_Handled;
   }
 
@@ -750,8 +740,7 @@ public Action Command_Dice_ReRoll(int client, int args)
   {
     char typename[32];
     GetTypeName(GT_Dice, typename, sizeof(typename));
-    ReplyToCommand(client, "%s %t", PLUGIN_TAG, "MG_No_Giveaway_Type",
-                   typename);
+    ReplyToCommand(client, "%s %t", PLUGIN_TAG, "MG_No_Giveaway_Type", typename);
     return Plugin_Handled;
   }
 
@@ -772,8 +761,7 @@ public Action Command_Dice_ReRoll(int client, int args)
   {
     int last_roll = Dice_PlayerRolls.Get(client);
     Dice_Roll(client, true);
-    ReplyToCommand(client, "%s %t", PLUGIN_TAG, "MG_Dice_ReRolled", last_roll,
-                   --rolls_left);
+    ReplyToCommand(client, "%s %t", PLUGIN_TAG, "MG_Dice_ReRolled", last_roll, --rolls_left);
     Dice_ReRolls.Set(client, rolls_left);
   }
   else
@@ -789,8 +777,7 @@ public Action Command_Dice_Rig(int client, int args)
   {
     char typename[32];
     GetTypeName(GT_Dice, typename, sizeof(typename));
-    ReplyToCommand(client, "%s %t", PLUGIN_TAG, "MG_No_Giveaway_Type",
-                   typename);
+    ReplyToCommand(client, "%s %t", PLUGIN_TAG, "MG_No_Giveaway_Type", typename);
     return Plugin_Handled;
   }
   if (args < 1)
@@ -824,8 +811,7 @@ public Action Command_Number_Guess(int client, int args)
   {
     char typename[32];
     GetTypeName(GT_Dice, typename, sizeof(typename));
-    ReplyToCommand(client, "%s %t", PLUGIN_TAG, "MG_No_Giveaway_Type",
-                   typename);
+    ReplyToCommand(client, "%s %t", PLUGIN_TAG, "MG_No_Giveaway_Type", typename);
     return Plugin_Handled;
   }
   if (args < 1)
@@ -873,17 +859,14 @@ public Action Command_Number_Guess(int client, int args)
       {
         case 0:
         {
-          ReplyToCommand(client, "%s %t", PLUGIN_TAG, "MG_Number_Guess", "You",
-                         guess);
+          ReplyToCommand(client, "%s %t", PLUGIN_TAG, "MG_Number_Guess", "You", guess);
         }
         case 1:
         {
           char str[128];
-          Format(str, sizeof(str), "%s %T", PLUGIN_TAG, "MG_Number_Guess",
-                 LANG_SERVER, name, guess);
+          Format(str, sizeof(str), "%s %T", PLUGIN_TAG, "MG_Number_Guess", LANG_SERVER, name, guess);
           SendToAdmins(str);
-          ReplyToCommand(client, "%s %t", PLUGIN_TAG, "MG_Number_Guess", name,
-                         guess);
+          ReplyToCommand(client, "%s %t", PLUGIN_TAG, "MG_Number_Guess", name, guess);
         }
         case 2:
         {
@@ -893,8 +876,7 @@ public Action Command_Number_Guess(int client, int args)
     }
   }
   else
-    ReplyToCommand(client, "%s %t", PLUGIN_TAG, "MG_Number_Bad_Range",
-                   cv_number_min.IntValue, cv_number_max.IntValue);
+    ReplyToCommand(client, "%s %t", PLUGIN_TAG, "MG_Number_Bad_Range", cv_number_min.IntValue, cv_number_max.IntValue);
 
   return Plugin_Handled;
 }
