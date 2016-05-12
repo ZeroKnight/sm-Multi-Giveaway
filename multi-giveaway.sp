@@ -192,7 +192,7 @@ bool LoadConfig()
 }
 
 
-void GetTypeName(const GiveawayType type, char[] str, int sz)
+void GetTypeName(const GiveawayType type, char[] str, const int sz)
 {
   switch (type)
   {
