@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016 Alex "ZeroKnight" George
+ * Copyright © 2016 Alex "ZeroKnight" George
  *
  * This file is licensed under the MIT License. For details, please see the
  * LICENSE file that should be included with the source code, or
