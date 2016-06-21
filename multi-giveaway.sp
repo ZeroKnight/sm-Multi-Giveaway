@@ -219,7 +219,7 @@ bool IsTypeEnabled(const GiveawayType type)
 
 GiveawayType GetCurrentGiveaway()
 {
-  GiveawayType cg = GetCurrentGiveaway();
+  GiveawayType cg; GiveawayData.GetValue("Current", cg);
   return cg;
 }
 
