@@ -146,6 +146,12 @@
     "en" "You haven't performed your first roll yet!"
   }
 
+  "MG_Dice_ReRoll_Changed"
+  {
+    "#format" "{1:d}"
+    "en" "Re-Roll limit changed. You now have {1}."
+  }
+
   "MG_Dice_Win"
   {
     "#format" "{1:s}{2:d}"

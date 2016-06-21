@@ -598,6 +598,9 @@ public void OnPluginStart()
   RegisterCommands();
   RegisterConVars();
 
+  /* Set up ConVar hooks */
+  cv_dice_rerolls.AddChangeHook(OnConVarChange);
+
   char translatefile[64];
   Format(translatefile, sizeof(translatefile), "%s.phrases", PLUGIN_NAME);
   LoadTranslations(translatefile);
@@ -620,7 +623,6 @@ public void OnMapStart()
 
   // Dice
   ArraySetAll(Dice_PlayerRolls, 0);
-  // FIXME: Hook into convar change and re-set this array
   ArraySetAll(Dice_ReRolls, cv_dice_rerolls.IntValue);
 
   // Number Guess
@@ -642,6 +644,30 @@ public void OnClientDisconnect(int client)
 
   // Number Guess
   Number_PlayerGuesses.Set(client, 0);
+}
+
+public void OnConVarChange(ConVar convar,
+                           const char[] oldValue,
+                           const char[] newValue)
+{
+  int iOld = StringToInt(oldValue);
+  int iNew = StringToInt(newValue);
+
+  if (convar == cv_dice_rerolls && iOld != iNew)
+  {
+    /* Change should be retroactive. Clients will get the difference added on
+     * to what they have, but must be [0, new] */
+    for (int i = 1; i < Dice_ReRolls.Length; ++i)
+    {
+      int rerolls = Dice_ReRolls.Get(i);
+      int new_rerolls = max(min((iNew-iOld) + rerolls, iNew), 0);
+      Dice_ReRolls.Set(i, new_rerolls);
+
+      /* Notify players if there is a Dice Giveaway in progress */
+      if ((GetCurrentGiveaway() == GT_Dice) && IsClientConnected(i))
+        PrintToChat(i, "%s %t", PLUGIN_TAG, "MG_Dice_ReRoll_Changed", new_rerolls);
+    }
+  }
 }
 
 /***************************************************************\
