@@ -686,8 +686,8 @@ public Action Command_MultiGiveaway(int client, int args)
       {
         char name[32];
         GetTypeName(view_as<GiveawayType>(1<<i), name, sizeof(name));
+        if (i != 0) StrCat(typenames, sizeof(typenames), ", ");
         StrCat(typenames, sizeof(typenames), name);
-        StrCat(typenames, sizeof(typenames), ", ");
       }
       ReplyToCommand(client, "%s %t", PLUGIN_TAG, "MG_Type_Needed", typenames);
       return Plugin_Handled;
