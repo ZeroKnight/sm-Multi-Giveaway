@@ -10,11 +10,6 @@
     "en" "Configuration error!"
   }
 
-  "MG_Target_Required"
-  {
-    "en" "You must specify a target."
-  }
-
   "MG_No_Giveaway"
   {
     "en" "There is no Giveaway in progress."

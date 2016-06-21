@@ -782,7 +782,7 @@ public Action Command_Dice_Rig(int client, int args)
   }
   if (args < 1)
   {
-    ReplyToCommand(client, "%s %t", PLUGIN_TAG, "MG_Target_Required");
+    ReplyToCommand(client, "%s %t", PLUGIN_TAG, "No matching client");
     return Plugin_Handled;
   }
 
