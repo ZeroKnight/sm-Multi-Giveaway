@@ -34,12 +34,12 @@
 
   "MG_Ineligible_Alive"
   {
-    "en" "You must be alive to participate in the Giveaway"
+    "en" "You must be alive to participate in the Giveaway."
   }
 
   "MG_Ineligible_Spec"
   {
-    "en" "You must be playing to participate in the Giveaway"
+    "en" "You must be playing to participate in the Giveaway."
   }
 
   "MG_Not_Connected_Long_Enough"
@@ -128,17 +128,17 @@
   "MG_Dice_ReRolled"
   {
     "#format" "{1:d}{2:d}"
-    "en" "Your last roll was {1}. You have {2} re-rolls remaining."
+    "en" "Your last roll was {1}. Re-Rolls remaining: {2}"
   }
 
   "MG_Dice_ReRoll_Disabled"
   {
-    "en" "ReRolls are not enabled."
+    "en" "Re-Rolls are not enabled."
   }
 
   "MG_Dice_ReRoll_None"
   {
-    "en" "You have used all of your re-rolls for this Giveaway."
+    "en" "You have used all of your Re-Rolls for this Giveaway."
   }
 
   "MG_Dice_ReRoll_Roll_Needed"
