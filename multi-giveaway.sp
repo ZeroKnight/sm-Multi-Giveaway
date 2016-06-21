@@ -390,7 +390,7 @@ void Giveaway_Stop(const int client, const bool restarting=false)
           char name[MAX_NAME_LENGTH];
 
           /* Determine whether more than 1 player has the best roll */
-          for (int i = 0; i < Dice_PlayerRolls.Length; ++i)
+          for (int i = 1; i < Dice_PlayerRolls.Length; ++i)
             if (Dice_PlayerRolls.Get(i) == bestroll) tied.Push(i);
 
           if (tied.Length > 1)
@@ -431,7 +431,7 @@ void Giveaway_Stop(const int client, const bool restarting=false)
             ArrayList tied = new ArrayList(1);
 
             /* Determine whether more than 1 player has the closest guess */
-            for (int i = 0; i < Number_PlayerGuesses.Length; ++i)
+            for (int i = 1; i < Number_PlayerGuesses.Length; ++i)
               if (Number_PlayerGuesses.Get(i) == closest) tied.Push(i);
 
             if (tied.Length > 1)
@@ -553,7 +553,7 @@ void Dice_Roll(const int client, const bool rerolling=false)
 int Dice_GetBestRoll()
 {
   int best = -1;
-  for (int i = 0; i < Dice_PlayerRolls.Length; ++i)
+  for (int i = 1; i < Dice_PlayerRolls.Length; ++i)
   {
     int roll = Dice_PlayerRolls.Get(i);
     if (roll > best) best = roll;
@@ -566,7 +566,7 @@ int Number_GetClosestGuess()
   int closest = 0;
   int target; GiveawayData.GetValue("Number_Target", target);
   PrintToServer("target = %d", target);
-  for (int i = 0; i < Number_PlayerGuesses.Length; ++i)
+  for (int i = 1; i < Number_PlayerGuesses.Length; ++i)
   {
     int guess = Number_PlayerGuesses.Get(i);
     if (guess == 0) continue; // No guess for this client
@@ -579,7 +579,7 @@ int Number_GetClosestGuess()
 
 bool Number_IsGuessUnique(const int client, const int guess)
 {
-  for (int i = 0; i < Number_PlayerGuesses.Length; ++i)
+  for (int i = 1; i < Number_PlayerGuesses.Length; ++i)
     if (i != client && guess == Number_PlayerGuesses.Get(i)) return false;
   return true;
 }
