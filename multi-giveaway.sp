@@ -28,17 +28,17 @@ public Plugin myinfo =
 };
 
 const int MG_MAX_MESSAGE_LENGTH = 256;
-const int TYPEOPT_MAX_LEN = 64;
+const int MAX_OPTION_LENGTH = 64;
 
 /* NOTE: (<<= 1) is actually a neat thing that SourcePawn does. It lets you
  * specify how to 'increment' each enumeration. In this case, each one will be
  * the previous value left shifted 1, which gives us our bit-field.
  */
-enum GiveawayType (<<= 1)
+enum Giveaway (<<= 1)
 {
   GT_Invalid = -1, GT_Dice = 1, GT_Number, GT_Kill, GT_All = 7
 };
-const int nGTypes = 3;
+const int nGiveaways = 3;
 
 /* Global state variables/data structures */
 StringMap GiveawayData;
@@ -46,7 +46,7 @@ ArrayList Dice_PlayerRolls;
 ArrayList Dice_ReRolls;
 ArrayList Number_PlayerGuesses;
 
-ArrayList Current_TypeOpts; // NOTE: Subject to change
+ArrayList Current_GiveawayOpts; // NOTE: Subject to change
 
 //File configfile = ...
 
@@ -55,7 +55,7 @@ ArrayList Current_TypeOpts; // NOTE: Subject to change
 char CVAR_PREFIX[] = "multi_giveaway";
 CVAR(version);
 CVAR(flags);
-CVAR(enabled_types);
+CVAR(enabled_giveaways);
 CVAR(player_state);
 CVAR(min_conn_time);
 CVAR(dice_min);
@@ -89,10 +89,10 @@ void RegisterConVars()
     "multi_giveaway_flags",
     "b",
     "List of admin flags allowed to manage giveaways");
-  cv_enabled_types = CreateConVar(
-    "multi_giveaway_enabled_types",
+  cv_enabled_giveaways = CreateConVar(
+    "multi_giveaway_enabled_giveaways",
     sGT_All,
-    "Bit-field (sum of options) of enabled Giveaway types",
+    "Bit-field (sum of options) of enabled Giveaways",
     FCVAR_NONE,
     true, 1.0,
     true, float(GT_All));
@@ -231,12 +231,12 @@ bool CanParticipate(const int client)
   return true;
 }
 
-void GetTypeOpts(char[] str, const int sz)
+void GetGiveawayOpts(char[] str, const int sz)
 {
   char opt[64];
-  for (int i = 0; i < Current_TypeOpts.Length; ++i)
+  for (int i = 0; i < Current_GiveawayOpts.Length; ++i)
   {
-    Current_TypeOpts.GetString(i, opt, sizeof(opt));
+    Current_GiveawayOpts.GetString(i, opt, sizeof(opt));
     StrCat(str, sz, opt);
     StrCat(str, sz, "; ");
   }
@@ -266,9 +266,9 @@ void SendToAdmins(const char[] format, any ...)
  * Giveaway Functions
 \***************************************************************/
 
-void GetTypeName(const GiveawayType type, char[] str, const int sz)
+void GetGiveawayName(const Giveaway g, char[] str, const int sz)
 {
-  switch (type)
+  switch (g)
   {
     case GT_Invalid: return;
     case GT_Dice:    strcopy(str, sz, "Dice");
@@ -278,73 +278,73 @@ void GetTypeName(const GiveawayType type, char[] str, const int sz)
   }
 }
 
-GiveawayType GetType(const char[] typename)
+Giveaway GetGiveaway(const char[] name)
 {
-  if      (StrEqual(typename, "dice", false))   return GT_Dice;
-  else if (StrEqual(typename, "number", false)) return GT_Number;
-  else if (StrEqual(typename, "kill", false))   return GT_Kill;
+  if      (StrEqual(name, "dice", false))   return GT_Dice;
+  else if (StrEqual(name, "number", false)) return GT_Number;
+  else if (StrEqual(name, "kill", false))   return GT_Kill;
   else return GT_Invalid;
 }
 
-bool IsTypeEnabled(const GiveawayType type)
+bool IsGiveawayEnabled(const Giveaway g)
 {
-  return view_as<GiveawayType>(cv_enabled_types.IntValue) & type ? true : false;
+  return view_as<Giveaway>(cv_enabled_giveaways.IntValue) & g ? true : false;
 }
 
-GiveawayType GetCurrentGiveaway()
+Giveaway GetCurrentGiveaway()
 {
-  GiveawayType cg; GiveawayData.GetValue("Current", cg);
+  Giveaway cg; GiveawayData.GetValue("Current", cg);
   return cg;
 }
 
-void SetCurrentGiveaway(const GiveawayType type)
+void SetCurrentGiveaway(const Giveaway g)
 {
-  GiveawayData.SetValue("Current", type);
+  GiveawayData.SetValue("Current", g);
 }
 
-bool Giveaway_Start(const GiveawayType type,
+bool Giveaway_Start(const Giveaway g,
                     const ArrayList opts,
                     const int client,
                     const bool restarting=false)
 {
-  GiveawayType cg = GetCurrentGiveaway();
-  char typename_current[32];
-  GetTypeName(cg, typename_current, sizeof(typename_current));
+  Giveaway cg = GetCurrentGiveaway();
+  char gname_current[32];
+  GetGiveawayName(cg, gname_current, sizeof(gname_current));
   if (cg != GT_Invalid)
   {
-    ReplyToCommand(client, "%s %t", PLUGIN_TAG, "MG_Giveaway_In_Progress", typename_current);
+    ReplyToCommand(client, "%s %t", PLUGIN_TAG, "MG_Giveaway_In_Progress", gname_current);
     return false;
   }
 
-  char typename[32], typeopts[512];
-  GetTypeName(type, typename, sizeof(typename));
-  GetTypeOpts(typeopts, sizeof(typeopts));
-  if (type == GT_Invalid)
+  char gname[32], opts_str[512];
+  GetGiveawayName(g, gname, sizeof(gname));
+  GetGiveawayOpts(opts_str, sizeof(opts_str));
+  if (g == GT_Invalid)
   {
-    ReplyToCommand(client, "%s %t", PLUGIN_TAG, "MG_Type_Invalid", typename);
+    ReplyToCommand(client, "%s %t", PLUGIN_TAG, "MG_Type_Invalid", gname);
     return false;
   }
-  else if (!IsTypeEnabled(type) && !restarting)
+  else if (!IsGiveawayEnabled(g) && !restarting)
   {
-    ReplyToCommand(client, "%s %t", PLUGIN_TAG, "MG_Type_Disabled", typename);
+    ReplyToCommand(client, "%s %t", PLUGIN_TAG, "MG_Type_Disabled", gname);
     return false;
   }
-  else if (type == GT_Kill) // XXX: Temporary
+  else if (g == GT_Kill) // XXX: Temporary
   {
     ReplyToCommand(client, "%s Not yet implemented!", PLUGIN_TAG);
     return false;
   }
 
-  SetCurrentGiveaway(type);
+  SetCurrentGiveaway(g);
   GiveawayData.SetValue("Participants", 0);
   GiveawayData.SetValue("Starter", client);
 
   if (!restarting)
   {
-    ShowActivity2(client, PLUGIN_TAG, " %t", "MG_Start", typename);
-    LogAction(client, -1, "%L started Giveaway \"%s\" with options: %s", client, typename, typeopts);
+    ShowActivity2(client, PLUGIN_TAG, " %t", "MG_Start", gname);
+    LogAction(client, -1, "%L started Giveaway \"%s\" with options: %s", client, gname, opts_str);
   }
-  switch (type)
+  switch (g)
   {
     case GT_Dice:
     {
@@ -368,19 +368,19 @@ bool Giveaway_Start(const GiveawayType type,
 
 void Giveaway_Stop(const int client, const bool restarting=false)
 {
-  GiveawayType cg = GetCurrentGiveaway();
+  Giveaway cg = GetCurrentGiveaway();
   if (cg == GT_Invalid)
   {
     ReplyToCommand(client, "%s %t", PLUGIN_TAG, "MG_No_Giveaway");
     return;
   }
 
-  char typename[32];
-  GetTypeName(cg, typename, sizeof(typename));
+  char gname[32];
+  GetGiveawayName(cg, gname, sizeof(gname));
   if (!restarting)
   {
-    ShowActivity2(client, PLUGIN_TAG, " %t", "MG_Stop", typename);
-    LogAction(client, -1, "%L stopped Giveaway \"%s\"", client, typename);
+    ShowActivity2(client, PLUGIN_TAG, " %t", "MG_Stop", gname);
+    LogAction(client, -1, "%L stopped Giveaway \"%s\"", client, gname);
   }
 
   int winner; GiveawayData.GetValue("Winner", winner);
@@ -395,7 +395,7 @@ void Giveaway_Stop(const int client, const bool restarting=false)
           int bestroll = Dice_GetBestRoll();
           ArrayList tied = new ArrayList(1);
           int rigged; GiveawayData.GetValue("Winner", rigged);
-          char name[MAX_NAME_LENGTH];
+          char winner_name[MAX_NAME_LENGTH];
 
           /* Determine whether more than 1 player has the best roll */
           for (int i = 1; i < Dice_PlayerRolls.Length; ++i)
@@ -411,13 +411,13 @@ void Giveaway_Stop(const int client, const bool restarting=false)
           /* Rig the Giveaway */
           if (rigged != -1) winner = rigged;
 
-          GetClientName(winner, name, sizeof(name));
+          GetClientName(winner, winner_name, sizeof(winner_name));
           PrintToChatAll("%s %t", PLUGIN_TAG,
                          bestroll == cv_dice_max.IntValue ?
-                         "MG_Dice_Win_Perfect" : "MG_Dice_Win", name, bestroll);
+                         "MG_Dice_Win_Perfect" : "MG_Dice_Win", winner_name, bestroll);
         }
         else
-          PrintToChatAll("%s %t", PLUGIN_TAG, "MG_Giveaway_Cancelled", typename);
+          PrintToChatAll("%s %t", PLUGIN_TAG, "MG_Giveaway_Cancelled", gname);
       }
       ArraySetAll(Dice_PlayerRolls, 0);
       ArraySetAll(Dice_ReRolls, cv_dice_rerolls.IntValue);
@@ -430,7 +430,7 @@ void Giveaway_Stop(const int client, const bool restarting=false)
         if (Number_PlayerGuesses.Length)
         {
           int target; GiveawayData.GetValue("Number_Target", target);
-          char name[MAX_NAME_LENGTH];
+          char winner_name[MAX_NAME_LENGTH];
 
           if (winner == -1)
           {
@@ -448,17 +448,17 @@ void Giveaway_Stop(const int client, const bool restarting=false)
               winner = tied.Get(GetRandomInt(0, tied.Length - 1));
             }
             else winner = tied.Get(0);
-            GetClientName(winner, name, sizeof(name));
-            PrintToChatAll("%s %t", PLUGIN_TAG, "MG_Number_Win_Close", name, closest, target);
+            GetClientName(winner, winner_name, sizeof(winner_name));
+            PrintToChatAll("%s %t", PLUGIN_TAG, "MG_Number_Win_Close", winner_name, closest, target);
           }
           else
           {
-            GetClientName(winner, name, sizeof(name));
-            PrintToChatAll("%s %t", PLUGIN_TAG, "MG_Number_Win", name, target);
+            GetClientName(winner, winner_name, sizeof(winner_name));
+            PrintToChatAll("%s %t", PLUGIN_TAG, "MG_Number_Win", winner_name, target);
           }
         }
         else
-          PrintToChatAll("%s %t", PLUGIN_TAG, "MG_Giveaway_Cancelled", typename);
+          PrintToChatAll("%s %t", PLUGIN_TAG, "MG_Giveaway_Cancelled", gname);
       }
       ArraySetAll(Number_PlayerGuesses, 0);
     }
@@ -471,42 +471,42 @@ void Giveaway_Stop(const int client, const bool restarting=false)
   GiveawayData.SetValue("Participants", -1);
   GiveawayData.SetValue("Starter", -1);
   GiveawayData.SetValue("Winner", -1);
-  Current_TypeOpts.Clear();
+  Current_GiveawayOpts.Clear();
 }
 
 void Giveaway_Restart(const int client)
 {
-  GiveawayType cg = GetCurrentGiveaway();
+  Giveaway cg = GetCurrentGiveaway();
   if (cg == GT_Invalid)
   {
     ReplyToCommand(client, "%s %t", PLUGIN_TAG, "MG_No_Giveaway");
     return;
   }
 
-  char typename[32], typeopts[512];
-  GetTypeName(cg, typename, sizeof(typename));
-  GetTypeOpts(typeopts, sizeof(typeopts));
+  char gname[32], opts[512];
+  GetGiveawayName(cg, gname, sizeof(gname));
+  GetGiveawayOpts(opts, sizeof(opts));
 
-  ShowActivity2(client, PLUGIN_TAG, " %t", "MG_Restart", typename);
-  LogAction(client, -1, "%L restarted Giveaway \"%s\" with options: %s", client, typename, typeopts);
+  ShowActivity2(client, PLUGIN_TAG, " %t", "MG_Restart", gname);
+  LogAction(client, -1, "%L restarted Giveaway \"%s\" with options: %s", client, gname, opts);
   Giveaway_Stop(client, true);
-  Giveaway_Start(cg, Current_TypeOpts, client, true);
+  Giveaway_Start(cg, Current_GiveawayOpts, client, true);
 }
 
 void Giveaway_Status(const int client)
 {
-  GiveawayType cg = GetCurrentGiveaway();
+  Giveaway cg = GetCurrentGiveaway();
   if (cg == GT_Invalid)
   {
     ReplyToCommand(client, "%s %t", PLUGIN_TAG, "MG_No_Giveaway");
     return;
   }
 
-  char typename[32], typeopts[512];
-  GetTypeName(cg, typename, sizeof(typename));
-  GetTypeOpts(typeopts, sizeof(typeopts));
+  char gname[32], opts[512];
+  GetGiveawayName(cg, gname, sizeof(gname));
+  GetGiveawayOpts(opts, sizeof(opts));
 
-  ReplyToCommand(client, "%s %t", PLUGIN_TAG, "MG_Status", typename, typeopts);
+  ReplyToCommand(client, "%s %t", PLUGIN_TAG, "MG_Status", gname, opts);
   // do other things
 }
 
@@ -617,7 +617,7 @@ public void OnMapStart()
 {
   /* Initialize global state and data structures */
   GiveawayData         = new StringMap();
-  Current_TypeOpts     = new ArrayList(TYPEOPT_MAX_LEN);
+  Current_GiveawayOpts     = new ArrayList(MAX_OPTION_LENGTH);
   Dice_PlayerRolls     = new ArrayList(1, MAXPLAYERS);
   Dice_ReRolls         = new ArrayList(1, MAXPLAYERS);
   Number_PlayerGuesses = new ArrayList(1, MAXPLAYERS);
@@ -703,35 +703,35 @@ public Action Command_MultiGiveaway(int client, int args)
     return Plugin_Handled;
   }
 
-  char action[32], typename[32];
+  char action[32], name[32];
   GetCmdArg(1, action, sizeof(action));
-  GetCmdArg(2, typename, sizeof(typename));
-  GiveawayType type = GetType(typename);
+  GetCmdArg(2, name, sizeof(name));
+  Giveaway g = GetGiveaway(name);
 
   if (StrEqual(action, "start", false))
   {
     if (args < 2)
     {
-      /* No type specified, inform client of valid types */
-      char typenames[32*nGTypes];
-      for (int i = 0; i < nGTypes; ++i)
+      /* No Giveaway specified, inform client of valid Giveaways */
+      char gnames[32*nGiveaways];
+      for (int i = 0; i < nGiveaways; ++i)
       {
-        char name[32];
-        GetTypeName(view_as<GiveawayType>(1<<i), name, sizeof(name));
-        if (i != 0) StrCat(typenames, sizeof(typenames), ", ");
-        StrCat(typenames, sizeof(typenames), name);
+        char gname[32];
+        GetGiveawayName(view_as<Giveaway>(1<<i), gname, sizeof(gname));
+        if (i != 0) StrCat(gnames, sizeof(gnames), ", ");
+        StrCat(gnames, sizeof(gnames), gname);
       }
-      ReplyToCommand(client, "%s %t", PLUGIN_TAG, "MG_Type_Needed", typenames);
+      ReplyToCommand(client, "%s %t", PLUGIN_TAG, "MG_Type_Needed", gnames);
       return Plugin_Handled;
     }
 
     for (int i = 3; i <= GetCmdArgs(); ++i)
     {
-      char opt[TYPEOPT_MAX_LEN];
+      char opt[MAX_OPTION_LENGTH];
       GetCmdArg(i, opt, sizeof(opt));
-      Current_TypeOpts.PushString(opt);
+      Current_GiveawayOpts.PushString(opt);
     }
-    Giveaway_Start(type, Current_TypeOpts, client);
+    Giveaway_Start(g, Current_GiveawayOpts, client);
   }
   else if (StrEqual(action, "stop", false))
     Giveaway_Stop(client);
@@ -749,12 +749,12 @@ public Action Command_Dice_Roll(int client, int args)
 {
   if (!CanParticipate(client)) return Plugin_Handled;
 
-  GiveawayType cg = GetCurrentGiveaway();
+  Giveaway cg = GetCurrentGiveaway();
   if (cg != GT_Dice)
   {
-    char typename[32];
-    GetTypeName(GT_Dice, typename, sizeof(typename));
-    ReplyToCommand(client, "%s %t", PLUGIN_TAG, "MG_No_Giveaway_Type", typename);
+    char gname[32];
+    GetGiveawayName(GT_Dice, gname, sizeof(gname));
+    ReplyToCommand(client, "%s %t", PLUGIN_TAG, "MG_No_Giveaway_Type", gname);
     return Plugin_Handled;
   }
 
@@ -767,12 +767,12 @@ public Action Command_Dice_ReRoll(int client, int args)
 {
   if (!CanParticipate(client)) return Plugin_Handled;
 
-  GiveawayType cg = GetCurrentGiveaway();
+  Giveaway cg = GetCurrentGiveaway();
   if (cg != GT_Dice)
   {
-    char typename[32];
-    GetTypeName(GT_Dice, typename, sizeof(typename));
-    ReplyToCommand(client, "%s %t", PLUGIN_TAG, "MG_No_Giveaway_Type", typename);
+    char gname[32];
+    GetGiveawayName(GT_Dice, gname, sizeof(gname));
+    ReplyToCommand(client, "%s %t", PLUGIN_TAG, "MG_No_Giveaway_Type", gname);
     return Plugin_Handled;
   }
 
@@ -804,12 +804,12 @@ public Action Command_Dice_ReRoll(int client, int args)
 
 public Action Command_Dice_Rig(int client, int args)
 {
-  GiveawayType cg = GetCurrentGiveaway();
+  Giveaway cg = GetCurrentGiveaway();
   if (cg != GT_Dice)
   {
-    char typename[32];
-    GetTypeName(GT_Dice, typename, sizeof(typename));
-    ReplyToCommand(client, "%s %t", PLUGIN_TAG, "MG_No_Giveaway_Type", typename);
+    char name[32];
+    GetGiveawayName(GT_Dice, name, sizeof(name));
+    ReplyToCommand(client, "%s %t", PLUGIN_TAG, "MG_No_Giveaway_Type", name);
     return Plugin_Handled;
   }
   if (args < 1)
@@ -838,12 +838,12 @@ public Action Command_Number_Guess(int client, int args)
 {
   if (!CanParticipate(client)) return Plugin_Handled;
 
-  GiveawayType cg = GetCurrentGiveaway();
+  Giveaway cg = GetCurrentGiveaway();
   if (cg != GT_Number)
   {
-    char typename[32];
-    GetTypeName(GT_Dice, typename, sizeof(typename));
-    ReplyToCommand(client, "%s %t", PLUGIN_TAG, "MG_No_Giveaway_Type", typename);
+    char gname[32];
+    GetGiveawayName(GT_Dice, gname, sizeof(gname));
+    ReplyToCommand(client, "%s %t", PLUGIN_TAG, "MG_No_Giveaway_Type", gname);
     return Plugin_Handled;
   }
   if (args < 1)
@@ -885,8 +885,8 @@ public Action Command_Number_Guess(int client, int args)
     }
     else
     {
-      char name[MAX_NAME_LENGTH];
-      GetClientName(client, name, sizeof(name));
+      char player[MAX_NAME_LENGTH];
+      GetClientName(client, player, sizeof(player));
       switch (cv_number_show_guesses.IntValue)
       {
         case 0:
@@ -895,13 +895,12 @@ public Action Command_Number_Guess(int client, int args)
         }
         case 1:
         {
-          char str[128];
-          SendToAdmins("%s %T", PLUGIN_TAG, "MG_Number_Guess", name, guess);
-          ReplyToCommand(client, "%s %t", PLUGIN_TAG, "MG_Number_Guess", name, guess);
+          SendToAdmins("%s %T", PLUGIN_TAG, "MG_Number_Guess", player, guess);
+          ReplyToCommand(client, "%s %t", PLUGIN_TAG, "MG_Number_Guess", player, guess);
         }
         case 2:
         {
-          PrintToChatAll("%s %t", PLUGIN_TAG, "MG_Number_Guess", name, guess);
+          PrintToChatAll("%s %t", PLUGIN_TAG, "MG_Number_Guess", player, guess);
         }
       }
     }
