@@ -302,6 +302,19 @@ void SetCurrentGiveaway(const Giveaway g)
   GiveawayData.SetValue("Current", g);
 }
 
+bool CheckGiveaway(const Giveaway g, const int client)
+{
+  Giveaway cg = GetCurrentGiveaway();
+  char name[32];
+  GetGiveawayName(cg, name, sizeof(name));
+  if (cg != g)
+  {
+    ReplyToCommand(client, "%s %t", PLUGIN_TAG, "MG_No_Giveaway_Type", name);
+    return false;
+  }
+  else return true;
+}
+
 bool Giveaway_Start(const Giveaway g,
                     const ArrayList opts,
                     const int client,
@@ -747,17 +760,8 @@ public Action Command_MultiGiveaway(int client, int args)
 
 public Action Command_Dice_Roll(int client, int args)
 {
-  if (!CanParticipate(client)) return Plugin_Handled;
-
-  Giveaway cg = GetCurrentGiveaway();
-  if (cg != GT_Dice)
-  {
-    char gname[32];
-    GetGiveawayName(GT_Dice, gname, sizeof(gname));
-    ReplyToCommand(client, "%s %t", PLUGIN_TAG, "MG_No_Giveaway_Type", gname);
+  if (!CheckGiveaway(GT_Dice, client) || !CanParticipate(client))
     return Plugin_Handled;
-  }
-
   Dice_Roll(client);
 
   return Plugin_Handled;
@@ -765,16 +769,8 @@ public Action Command_Dice_Roll(int client, int args)
 
 public Action Command_Dice_ReRoll(int client, int args)
 {
-  if (!CanParticipate(client)) return Plugin_Handled;
-
-  Giveaway cg = GetCurrentGiveaway();
-  if (cg != GT_Dice)
-  {
-    char gname[32];
-    GetGiveawayName(GT_Dice, gname, sizeof(gname));
-    ReplyToCommand(client, "%s %t", PLUGIN_TAG, "MG_No_Giveaway_Type", gname);
+  if (!CheckGiveaway(GT_Dice, client) || !CanParticipate(client))
     return Plugin_Handled;
-  }
 
   int rerolls = cv_dice_rerolls.IntValue;
   if (!rerolls)
@@ -804,14 +800,7 @@ public Action Command_Dice_ReRoll(int client, int args)
 
 public Action Command_Dice_Rig(int client, int args)
 {
-  Giveaway cg = GetCurrentGiveaway();
-  if (cg != GT_Dice)
-  {
-    char name[32];
-    GetGiveawayName(GT_Dice, name, sizeof(name));
-    ReplyToCommand(client, "%s %t", PLUGIN_TAG, "MG_No_Giveaway_Type", name);
-    return Plugin_Handled;
-  }
+  if (!CheckGiveaway(GT_Dice, client)) return Plugin_Handled;
   if (args < 1)
   {
     ReplyToCommand(client, "%s %t", PLUGIN_TAG, "No matching client");
@@ -836,16 +825,8 @@ public Action Command_Dice_Rig(int client, int args)
 
 public Action Command_Number_Guess(int client, int args)
 {
-  if (!CanParticipate(client)) return Plugin_Handled;
-
-  Giveaway cg = GetCurrentGiveaway();
-  if (cg != GT_Number)
-  {
-    char gname[32];
-    GetGiveawayName(GT_Dice, gname, sizeof(gname));
-    ReplyToCommand(client, "%s %t", PLUGIN_TAG, "MG_No_Giveaway_Type", gname);
+  if (!CheckGiveaway(GT_Number, client) || !CanParticipate(client))
     return Plugin_Handled;
-  }
   if (args < 1)
   {
     ReplyToCommand(client, "%s Usage: sm_guess <number>", PLUGIN_TAG);
