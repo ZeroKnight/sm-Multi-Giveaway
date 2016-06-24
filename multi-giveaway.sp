@@ -27,6 +27,7 @@ public Plugin myinfo =
   url         = PLUGIN_URL
 };
 
+const int MG_MAX_MESSAGE_LENGTH = 256;
 const int TYPEOPT_MAX_LEN = 64;
 
 /* NOTE: (<<= 1) is actually a neat thing that SourcePawn does. It lets you
@@ -285,12 +286,17 @@ void ArraySetAll(ArrayList& array, any value)
     array.Set(i, value);
 }
 
-void SendToAdmins(const char[] str)
+void SendToAdmins(const char[] format, any ...)
 {
+  char buffer[MG_MAX_MESSAGE_LENGTH];
   for (int i = 1; i <= MaxClients; ++i)
   {
     if (IsClientInGame(i) && GetUserAdmin(i) != INVALID_ADMIN_ID)
-      PrintToChat(i, "%s", str);
+    {
+      SetGlobalTransTarget(i);
+      VFormat(buffer, sizeof(buffer), format, 2);
+      PrintToChat(i, "%s", buffer);
+    }
   }
 }
 
@@ -538,9 +544,7 @@ void Dice_Roll(const int client, const bool rerolling=false)
     }
     case 1:
     {
-      char str[128];
-      Format(str, sizeof(str), "%s %T", PLUGIN_TAG, "MG_Dice_Result", LANG_SERVER, name, rand);
-      SendToAdmins(str);
+      SendToAdmins("%s %t", PLUGIN_TAG, "MG_Dice_Result", name, rand);
       ReplyToCommand(client, "%s %t", PLUGIN_TAG, "MG_Dice_Result", name, rand);
     }
     case 2:
@@ -890,8 +894,7 @@ public Action Command_Number_Guess(int client, int args)
         case 1:
         {
           char str[128];
-          Format(str, sizeof(str), "%s %T", PLUGIN_TAG, "MG_Number_Guess", LANG_SERVER, name, guess);
-          SendToAdmins(str);
+          SendToAdmins("%s %T", PLUGIN_TAG, "MG_Number_Guess", name, guess);
           ReplyToCommand(client, "%s %t", PLUGIN_TAG, "MG_Number_Guess", name, guess);
         }
         case 2:
