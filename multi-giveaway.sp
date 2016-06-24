@@ -40,7 +40,7 @@ enum GiveawayType (<<= 1)
 };
 const int nGTypes = 3;
 
-// Global state variables/data structures
+/* Global state variables/data structures */
 StringMap GiveawayData;
 ArrayList Dice_PlayerRolls;
 ArrayList Dice_ReRolls;
@@ -76,8 +76,6 @@ int clamp(const int i, const int minval, const int maxval)
 
 void RegisterConVars()
 {
-  // NOTE: Use HookConVarChange() for anything that needs it
-
   // XXX: Function overloads would be nice. Or casting that worked on strings.
   char sGT_All[32]; IntToString(view_as<int>(GT_All), sGT_All, sizeof(sGT_All));
 
@@ -193,42 +191,6 @@ bool LoadConfig()
 }
 
 
-void GetTypeName(const GiveawayType type, char[] str, const int sz)
-{
-  switch (type)
-  {
-    case GT_Invalid: return;
-    case GT_Dice:    strcopy(str, sz, "Dice");
-    case GT_Number:  strcopy(str, sz, "Number");
-    case GT_Kill:    strcopy(str, sz, "Kill");
-    default:         return;
-  }
-}
-
-GiveawayType GetType(const char[] typename)
-{
-  if      (StrEqual(typename, "dice", false))   return GT_Dice;
-  else if (StrEqual(typename, "number", false)) return GT_Number;
-  else if (StrEqual(typename, "kill", false))   return GT_Kill;
-  else return GT_Invalid;
-}
-
-bool IsTypeEnabled(const GiveawayType type)
-{
-  return view_as<GiveawayType>(cv_enabled_types.IntValue) & type ? true : false;
-}
-
-GiveawayType GetCurrentGiveaway()
-{
-  GiveawayType cg; GiveawayData.GetValue("Current", cg);
-  return cg;
-}
-
-void SetCurrentGiveaway(const GiveawayType type)
-{
-  GiveawayData.SetValue("Current", type);
-}
-
 bool CanParticipate(const int client)
 {
   bool spectating = GetClientTeam(client) == 1;
@@ -298,6 +260,46 @@ void SendToAdmins(const char[] format, any ...)
       PrintToChat(i, "%s", buffer);
     }
   }
+}
+
+/***************************************************************\
+ * Giveaway Functions
+\***************************************************************/
+
+void GetTypeName(const GiveawayType type, char[] str, const int sz)
+{
+  switch (type)
+  {
+    case GT_Invalid: return;
+    case GT_Dice:    strcopy(str, sz, "Dice");
+    case GT_Number:  strcopy(str, sz, "Number");
+    case GT_Kill:    strcopy(str, sz, "Kill");
+    default:         return;
+  }
+}
+
+GiveawayType GetType(const char[] typename)
+{
+  if      (StrEqual(typename, "dice", false))   return GT_Dice;
+  else if (StrEqual(typename, "number", false)) return GT_Number;
+  else if (StrEqual(typename, "kill", false))   return GT_Kill;
+  else return GT_Invalid;
+}
+
+bool IsTypeEnabled(const GiveawayType type)
+{
+  return view_as<GiveawayType>(cv_enabled_types.IntValue) & type ? true : false;
+}
+
+GiveawayType GetCurrentGiveaway()
+{
+  GiveawayType cg; GiveawayData.GetValue("Current", cg);
+  return cg;
+}
+
+void SetCurrentGiveaway(const GiveawayType type)
+{
+  GiveawayData.SetValue("Current", type);
 }
 
 bool Giveaway_Start(const GiveawayType type,
