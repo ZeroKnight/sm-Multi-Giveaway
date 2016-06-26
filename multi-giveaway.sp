@@ -191,46 +191,6 @@ bool LoadConfig()
 }
 
 
-bool CanParticipate(const int client)
-{
-  bool spectating = GetClientTeam(client) == 1;
-
-  /* Check player state */
-  if (!IsPlayerAlive(client))
-  {
-    char phrase[32];
-    switch (cv_player_state.IntValue)
-    {
-      case 0:
-      {
-        strcopy(phrase, sizeof(phrase),
-                spectating ? "MG_Ineligible_Spec" : "MG_Ineligible_Alive");
-      }
-      case 1:
-      {
-        if (spectating)
-          strcopy(phrase, sizeof(phrase), "MG_Ineligible_Spec");
-      }
-    }
-    if (strlen(phrase))
-    {
-      ReplyToCommand(client, "%s %t", PLUGIN_TAG, phrase);
-      return false;
-    }
-  }
-
-  /* Check connection time */
-  float time = GetClientTime(client);
-  int delta = cv_min_conn_time.IntValue - RoundToCeil(time);
-  if (time < cv_min_conn_time.FloatValue)
-  {
-    ReplyToCommand(client, "%s %t", PLUGIN_TAG, "MG_Not_Connected_Long_Enough",
-                   delta);
-    return false;
-  }
-  return true;
-}
-
 void GetGiveawayOpts(char[] str, const int sz)
 {
   char opt[64];
@@ -300,6 +260,46 @@ Giveaway GetCurrentGiveaway()
 void SetCurrentGiveaway(const Giveaway g)
 {
   GiveawayData.SetValue("Current", g);
+}
+
+bool CanParticipate(const int client)
+{
+  bool spectating = GetClientTeam(client) == 1;
+
+  /* Check player state */
+  if (!IsPlayerAlive(client))
+  {
+    char phrase[32];
+    switch (cv_player_state.IntValue)
+    {
+      case 0:
+      {
+        strcopy(phrase, sizeof(phrase),
+                spectating ? "MG_Ineligible_Spec" : "MG_Ineligible_Alive");
+      }
+      case 1:
+      {
+        if (spectating)
+          strcopy(phrase, sizeof(phrase), "MG_Ineligible_Spec");
+      }
+    }
+    if (strlen(phrase))
+    {
+      ReplyToCommand(client, "%s %t", PLUGIN_TAG, phrase);
+      return false;
+    }
+  }
+
+  /* Check connection time */
+  float time = GetClientTime(client);
+  int delta = cv_min_conn_time.IntValue - RoundToCeil(time);
+  if (time < cv_min_conn_time.FloatValue)
+  {
+    ReplyToCommand(client, "%s %t", PLUGIN_TAG, "MG_Not_Connected_Long_Enough",
+                   delta);
+    return false;
+  }
+  return true;
 }
 
 bool CheckGiveaway(const Giveaway g, const int client)
