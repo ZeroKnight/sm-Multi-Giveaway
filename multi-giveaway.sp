@@ -14,7 +14,7 @@
 char PLUGIN_NAME[]    = "Multi-Giveaway";
 char PLUGIN_AUTHOR[]  = "Alex \"ZeroKnight\" George";
 char PLUGIN_DESC[]    = "Expansive Giveaway system with numerous types of Giveaway events and stats";
-char PLUGIN_VERSION[] = "0.2.0";
+char PLUGIN_VERSION[] = "0.3.0";
 char PLUGIN_URL[]     = "http:/github.com/ZeroKnight/sm-Multi-Giveaway";
 char PLUGIN_TAG[]     = "[MG]";
 
@@ -40,6 +40,13 @@ enum Giveaway (<<= 1)
   GT_Invalid = -1, GT_Dice = 1, GT_Number, GT_Kill, GT_All = 7
 };
 const int nGiveaways = 3;
+
+enum KillObjective (<<= 1)
+{
+  Kill_Invalid = -1, Kill_Bounty = 1, Kill_Weapon, Kill_Slot, Kill_Frags,
+  Kill_All = 15
+};
+const int nKillObjectives = 4;
 
 /* Global state variables/data structures */
 StringMap GiveawayData;
@@ -344,11 +351,6 @@ bool Giveaway_Start(const Giveaway g,
     ReplyToCommand(client, "%s %t", PLUGIN_TAG, "MG_Type_Disabled", gname);
     return false;
   }
-  else if (g == GT_Kill) // XXX: Temporary
-  {
-    ReplyToCommand(client, "%s Not yet implemented!", PLUGIN_TAG);
-    return false;
-  }
 
   SetCurrentGiveaway(g);
   GiveawayData.SetValue("Participants", 0);
@@ -376,6 +378,31 @@ bool Giveaway_Start(const Giveaway g,
     }
     case GT_Kill:
     {
+      char type[16];
+      opts.GetString(0, type, sizeof(type));
+      if (StrEqual(type, "bounty", false))
+      {
+        GiveawayData.SetValue("Kill_Objective", Kill_Bounty);
+        opts.Erase(0);
+        if (opts.Length < 1)
+        {
+          ReplyToCommand(client, "%s %t", PLUGIN_TAG, "No matching client");
+          return Plugin_Handled;
+        }
+        char arg[MAX_NAME_LENGTH], bounty[MAX_NAME_LENGTH];
+        int target[1];
+        bool tnml;
+        opts.GetString(0, arg, sizeof(arg));
+        int rv = ProcessTargetString(arg, client, target, 1,
+                                     COMMAND_FILTER_CONNECTED|COMMAND_FILTER_NO_BOTS,
+                                     bounty, sizeof(bounty), tnml);
+        if (rv)
+        {
+          GiveawayData.SetValue("Kill_Bounty", target[0]);
+          PrintToChatAll("%s %t", PLUGIN_TAG, "MG_Kill_Bounty_Start", bounty);
+        }
+        else ReplyToTargetError(client, rv);
+      }
     }
   }
   return true;
@@ -480,6 +507,25 @@ void Giveaway_Stop(const int client, const bool restarting=false)
 
     case GT_Kill:
     {
+      KillObjective k; GiveawayData.GetValue("Kill_Objective", k);
+      switch (k)
+      {
+        case Kill_Bounty:
+        {
+          if (winner != -1)
+          {
+            int bounty; GiveawayData.GetValue("Kill_Bounty", bounty);
+            char winner_name[MAX_NAME_LENGTH], bounty_name[MAX_NAME_LENGTH];
+            GetClientName(winner, winner_name, sizeof(winner_name));
+            GetClientName(bounty, bounty_name, sizeof(bounty_name));
+            PrintToChatAll("%s %t", PLUGIN_TAG, "MG_Kill_Bounty_Win", winner_name, bounty_name);
+          }
+          else
+            PrintToChatAll("%s %t", PLUGIN_TAG, "MG_Giveaway_Cancelled", gname);
+          GiveawayData.SetValue("Kill_Bounty", -1);
+        }
+      }
+      GiveawayData.SetValue("Kill_Objective", Kill_Invalid);
     }
   }
   SetCurrentGiveaway(GT_Invalid);
@@ -622,6 +668,9 @@ public void OnPluginStart()
   /* Set up ConVar hooks */
   cv_dice_rerolls.AddChangeHook(OnConVarChange);
 
+  /* Set up Event Hooks */
+  HookEvent("player_death", Event_PlayerDeath);
+
   char translatefile[64];
   Format(translatefile, sizeof(translatefile), "%s.phrases", PLUGIN_NAME);
   LoadTranslations(translatefile);
@@ -649,6 +698,10 @@ public void OnMapStart()
   /* Number Guess */
   GiveawayData.SetValue("Number_Target", -1);
   ArraySetAll(Number_PlayerGuesses, 0);
+
+  /* Kill Objective */
+  GiveawayData.SetValue("Kill_Objective", Kill_Invalid);
+  GiveawayData.SetValue("Kill_Bounty", -1);
 }
 
 public void OnClientDisconnect(int client)
@@ -687,6 +740,32 @@ public void OnConVarChange(ConVar convar,
       /* Notify players if there is a Dice Giveaway in progress */
       if ((GetCurrentGiveaway() == GT_Dice) && IsClientConnected(i))
         PrintToChat(i, "%s %t", PLUGIN_TAG, "MG_Dice_ReRoll_Changed", new_rerolls);
+    }
+  }
+}
+
+public void Event_PlayerDeath(Event e, const char[] name, bool dontBroadcast)
+{
+  /* We don't care about this event if a Kill Giveaway isn't in progress */
+  if (!CheckGiveaway(GT_Kill)) return;
+
+  char victim_name[MAX_NAME_LENGTH], attacker_name[MAX_NAME_LENGTH];
+  int victim = e.GetInt("userid");
+  int attacker = e.GetInt("attacker");
+
+  KillObjective k; GiveawayData.GetValue("Kill_Objective", k);
+  switch (k)
+  {
+    case Kill_Bounty:
+    {
+      int bounty; GiveawayData.GetValue("Kill_Bounty", bounty);
+      if (GetClientOfUserId(victim) == bounty
+          && attacker != victim) // Bounty cannot kill themself to win :P
+      {
+        GiveawayData.SetValue("Winner", GetClientOfUserId(attacker));
+        Giveaway_Stop(0);
+        return;
+      }
     }
   }
 }

@@ -209,6 +209,18 @@
     "#format" "{1:s}{2:d}{3:d}"
     "en" "{1} had the closest guess of {2}! The lucky number was {3}"
   }
+
+  "MG_Kill_Bounty_Start"
+  {
+    "#format" "{1:s}"
+    "en" "A Bounty Kill-Objective Giveaway has started! The first to kill {1} wins!"
+  }
+
+  "MG_Kill_Bounty_Win"
+  {
+    "#format" "{1:s}{2:s}"
+    "en" "{1} has collected the bounty on {2} and has won the Giveaway!"
+  }
 }
 
 // vim: et sts=2 sw=2
