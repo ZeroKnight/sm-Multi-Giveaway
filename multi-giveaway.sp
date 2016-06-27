@@ -303,14 +303,15 @@ bool CanParticipate(const int client)
   return true;
 }
 
-bool CheckGiveaway(const Giveaway g, const int client)
+bool CheckGiveaway(const Giveaway g, const int client = -1)
 {
   Giveaway cg = GetCurrentGiveaway();
   char name[32];
   GetGiveawayName(cg, name, sizeof(name));
   if (cg != g)
   {
-    ReplyToCommand(client, "%s %t", PLUGIN_TAG, "MG_No_Giveaway_Type", name);
+    if (client != -1)
+      ReplyToCommand(client, "%s %t", PLUGIN_TAG, "MG_No_Giveaway_Type", name);
     return false;
   }
   else return true;
