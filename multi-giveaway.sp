@@ -632,7 +632,7 @@ public void OnMapStart()
 {
   /* Initialize global state and data structures */
   GiveawayData         = new StringMap();
-  Current_GiveawayOpts     = new ArrayList(MAX_OPTION_LENGTH);
+  Current_GiveawayOpts = new ArrayList(MAX_OPTION_LENGTH);
   Dice_PlayerRolls     = new ArrayList(1, MAXPLAYERS);
   Dice_ReRolls         = new ArrayList(1, MAXPLAYERS);
   Number_PlayerGuesses = new ArrayList(1, MAXPLAYERS);
@@ -642,11 +642,11 @@ public void OnMapStart()
   GiveawayData.SetValue("Starter", -1);
   GiveawayData.SetValue("Winner", -1);
 
-  // Dice
+  /* Dice */
   ArraySetAll(Dice_PlayerRolls, 0);
   ArraySetAll(Dice_ReRolls, cv_dice_rerolls.IntValue);
 
-  // Number Guess
+  /* Number Guess */
   GiveawayData.SetValue("Number_Target", -1);
   ArraySetAll(Number_PlayerGuesses, 0);
 }
@@ -709,11 +709,9 @@ public Action Command_ReloadConfig(int client, int args)
 
 public Action Command_MultiGiveaway(int client, int args)
 {
-  // sm_mg [start|stop|restart|status] <dice|number|kill|...> [params]...
-
   if (!args)
   {
-    // Interactive Mode: Menu-based interface
+    /* Interactive Mode: Menu-based interface */
     ReplyToCommand(client, "%s Interactive mode not yet implemented!", PLUGIN_TAG);
     return Plugin_Handled;
   }
@@ -748,12 +746,9 @@ public Action Command_MultiGiveaway(int client, int args)
     }
     Giveaway_Start(g, Current_GiveawayOpts, client);
   }
-  else if (StrEqual(action, "stop", false))
-    Giveaway_Stop(client);
-  else if (StrEqual(action, "restart", false))
-    Giveaway_Restart(client);
-  else if (StrEqual(action, "status", false))
-    Giveaway_Status(client);
+  else if (StrEqual(action, "stop", false))    Giveaway_Stop(client);
+  else if (StrEqual(action, "restart", false)) Giveaway_Restart(client);
+  else if (StrEqual(action, "status", false))  Giveaway_Status(client);
   else
     ReplyToCommand(client, "%s %t", PLUGIN_TAG, "MG_Action_Invalid", action, "start, stop, restart, status");
 
