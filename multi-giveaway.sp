@@ -738,7 +738,8 @@ public Action Command_MultiGiveaway(int client, int args)
       return Plugin_Handled;
     }
 
-    for (int i = 3; i <= GetCmdArgs(); ++i)
+    /* Get Options */
+    for (int i = 3; i <= args; ++i)
     {
       char opt[MAX_OPTION_LENGTH];
       GetCmdArg(i, opt, sizeof(opt));
