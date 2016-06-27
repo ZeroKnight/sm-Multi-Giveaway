@@ -28,6 +28,7 @@ public Plugin myinfo =
 };
 
 const int MG_MAX_MESSAGE_LENGTH = 256;
+const int MG_GIVEAWAY_NAME_LEN = 32;
 const int MAX_OPTION_LENGTH = 64;
 
 /* NOTE: (<<= 1) is actually a neat thing that SourcePawn does. It lets you
@@ -716,7 +717,7 @@ public Action Command_MultiGiveaway(int client, int args)
     return Plugin_Handled;
   }
 
-  char action[32], name[32];
+  char action[32], name[MG_GIVEAWAY_NAME_LEN];
   GetCmdArg(1, action, sizeof(action));
   GetCmdArg(2, name, sizeof(name));
   Giveaway g = GetGiveaway(name);
@@ -726,10 +727,10 @@ public Action Command_MultiGiveaway(int client, int args)
     if (args < 2)
     {
       /* No Giveaway specified, inform client of valid Giveaways */
-      char gnames[32*nGiveaways];
+      char gnames[MG_GIVEAWAY_NAME_LEN*nGiveaways];
       for (int i = 0; i < nGiveaways; ++i)
       {
-        char gname[32];
+        char gname[MG_GIVEAWAY_NAME_LEN];
         GetGiveawayName(view_as<Giveaway>(1<<i), gname, sizeof(gname));
         if (i != 0) StrCat(gnames, sizeof(gnames), ", ");
         StrCat(gnames, sizeof(gnames), gname);
